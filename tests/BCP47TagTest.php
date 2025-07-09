@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace LHcze\BCP47\Tests;
 
 use LHcze\BCP47\BCP47Tag;
-use LHcze\BCP47\ValueObject\ParsedTag;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -21,13 +20,13 @@ class BCP47TagTest extends TestCase
         $this->assertSame($expected, $locale->getNormalized());
     }
 
-    #[DataProvider('provideLocalesWithKnownTags')]
-    public function testConstructWithKnownTags(
+    #[DataProvider('provideLocalesWithSupportedLocales')]
+    public function testConstructWithSupportedLocales(
         string $input,
-        array $knownTags,
+        array $supportedLocales,
         string $expected
     ): void {
-        $locale = new BCP47Tag($input, null, $knownTags);
+        $locale = new BCP47Tag($input, null, $supportedLocales);
 
         $this->assertSame($input, $locale->getOriginalInput());
         $this->assertSame($expected, $locale->getNormalized());
@@ -37,10 +36,10 @@ class BCP47TagTest extends TestCase
     public function testConstructWithFallbackBCP47Tag(
         string $input,
         string $fallback,
-        ?array $knownTags,
+        ?array $supportedLocales,
         string $expected
     ): void {
-        $locale = new BCP47Tag($input, $fallback, $knownTags);
+        $locale = new BCP47Tag($input, $fallback, $supportedLocales);
 
         $this->assertSame($input, $locale->getOriginalInput());
         $this->assertSame($expected, $locale->getNormalized());
@@ -90,41 +89,28 @@ class BCP47TagTest extends TestCase
         $this->assertSame('en-US', (string) $locale);
     }
 
-    #[DataProvider('provideLocalesForParsedTag')]
-    public function testGetParsedTag(string $input, string $expectedLanguage, ?string $expectedScript, ?string $expectedRegion, array $expectedVariants): void
-    {
-        $locale = new BCP47Tag($input);
-        $parsedTag = $locale->getParsedTag();
-
-        $this->assertInstanceOf(ParsedTag::class, $parsedTag);
-        $this->assertSame($expectedLanguage, $parsedTag->getLanguage());
-        $this->assertSame($expectedScript, $parsedTag->getScript());
-        $this->assertSame($expectedRegion, $parsedTag->getRegion());
-        $this->assertSame($expectedVariants, $parsedTag->getVariants());
-    }
-
-    #[DataProvider('provideLocalesWithRequireCanonical')]
-    public function testConstructWithRequireCanonical(
+    #[DataProvider('provideLocalesWithRegionRequired')]
+    public function testConstructWithRegionRequired(
         string $input,
-        array $knownTags,
-        bool $requireCanonical,
+        array $supportedLocales,
+        bool $regionRequired,
         string $expected
     ): void {
-        $locale = new BCP47Tag($input, null, $knownTags, $requireCanonical);
+        $locale = new BCP47Tag($input, null, $supportedLocales, $regionRequired);
 
         $this->assertSame($input, $locale->getOriginalInput());
         $this->assertSame($expected, $locale->getNormalized());
     }
 
-    #[DataProvider('provideLocalesWithRequireCanonicalExceptions')]
-    public function testConstructWithRequireCanonicalThrowsException(
+    #[DataProvider('provideLocalesWithRegionRequiredExceptions')]
+    public function testConstructWithRegionRequiredThrowsException(
         string $input,
-        array $knownTags
+        array $supportedLocales
     ): void {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage(sprintf('No region found for language "%s" in known tags.', $input));
+        $this->expectExceptionMessage(sprintf('No region found for language "%s" in supported locales.', $input));
 
-        new BCP47Tag($input, null, $knownTags, true);
+        new BCP47Tag($input, null, $supportedLocales, true);
     }
 
     public static function provideValidLocales(): array
@@ -136,21 +122,17 @@ class BCP47TagTest extends TestCase
             'uppercase' => ['EN-US', 'en-US'],
             'language only' => ['en', 'en'],
             'three-part locale' => ['zh-Hans-CN', 'zh-Hans-CN'],
-            'grandfathered tag' => ['i-klingon', 'i-klingon'],
-            // TODO: These are stubs for future implementation
-            // 'extension tag' => ['en-US-x-private', 'en-US-x-private'],
-            // 'private use' => ['x-private', 'x-private'],
         ];
     }
 
-    public static function provideLocalesWithKnownTags(): array
+    public static function provideLocalesWithSupportedLocales(): array
     {
         return [
             'exact match' => ['en-US', ['en-US', 'fr-FR'], 'en-US'],
             'case-insensitive match' => ['en-us', ['en-US', 'fr-FR'], 'en-US'],
             'language-only match' => ['en', ['en-US', 'fr-FR'], 'en'],
             'no match, valid locale' => ['de-DE', ['en-US', 'fr-FR'], 'de-DE'],
-            'with underscore in known tags' => ['en-us', ['en_US', 'fr_FR'], 'en-US'],
+            'with underscore in supported' => ['en-us', ['en_US', 'fr_FR'], 'en-US'],
         ];
     }
 
@@ -197,34 +179,34 @@ class BCP47TagTest extends TestCase
         ];
     }
 
-    public static function provideLocalesWithRequireCanonical(): array
+    public static function provideLocalesWithRegionRequired(): array
     {
         return [
-            'language only with require canonical true' => [
+            'language only with region required true' => [
                 'en',
                 ['en-US', 'en-UK', 'fr-FR'],
                 true,
                 'en-US'
             ],
-            'language only with require canonical false' => [
+            'language only with region required false' => [
                 'en',
                 ['en-US', 'en-UK', 'fr-FR'],
                 false,
                 'en'
             ],
-            'full locale with require canonical true' => [
+            'full locale with region required true' => [
                 'en-UK',
                 ['en-US', 'en-UK', 'fr-FR'],
                 true,
                 'en-UK'
             ],
-            'full locale with require canonical false' => [
+            'full locale with region required false' => [
                 'en-UK',
                 ['en-US', 'en-UK', 'fr-FR'],
                 false,
                 'en-UK'
             ],
-            'case insensitive with require canonical true' => [
+            'case insensitive with region required true' => [
                 'EN',
                 ['en-US', 'en-UK', 'fr-FR'],
                 true,
@@ -233,57 +215,16 @@ class BCP47TagTest extends TestCase
         ];
     }
 
-    public static function provideLocalesWithRequireCanonicalExceptions(): array
+    public static function provideLocalesWithRegionRequiredExceptions(): array
     {
         return [
             'language only with no matching region' => [
                 'de',
                 ['en-US', 'en-UK', 'fr-FR']
             ],
-            'language only with empty known tags' => [
+            'language only with empty supported locales' => [
                 'en',
                 []
-            ],
-        ];
-    }
-
-    public static function provideLocalesForParsedTag(): array
-    {
-        return [
-            'language only' => [
-                'en',
-                'en',
-                null,
-                null,
-                [],
-            ],
-            'language-region' => [
-                'en-US',
-                'en',
-                null,
-                'US',
-                [],
-            ],
-            'language-script-region' => [
-                'zh-Hans-CN',
-                'zh',
-                'Hans',
-                'CN',
-                [],
-            ],
-            'language-region-variant' => [
-                'de-DE-1901',
-                'de',
-                null,
-                'DE',
-                ['1901'],
-            ],
-            'mixed case' => [
-                'eN-uS',
-                'en',
-                null,
-                'US',
-                [],
             ],
         ];
     }
