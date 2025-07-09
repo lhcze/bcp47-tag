@@ -8,6 +8,11 @@
             "LHcze\\BCP47\\": "src/"
         }
     },
+    "autoload-dev": {
+        "psr-4": {
+            "BCP47\\Tests\\": "tests/"
+        }
+    },
     "authors": [
         {
             "name": "LHcze",

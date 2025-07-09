@@ -6,6 +6,8 @@ namespace LHcze\BCP47;
 
 use InvalidArgumentException;
 use JsonSerializable;
+use LHcze\BCP47\Normalizer\BCP47Normalizer;
+use LHcze\BCP47\Parser\BCP47Parser;
 use Stringable;
 use Symfony\Component\Intl\Locales;
 use Symfony\Component\Validator\Constraints\Locale as LocaleConstraint;
@@ -48,18 +50,22 @@ final readonly class BCP47Tag implements Stringable, JsonSerializable
         ?array $supportedLocales = null,
         bool $regionRequired = false,
     ) {
+        // Initialize helper classes
+        $normalizer = new BCP47Normalizer();
+        $parser = new BCP47Parser($normalizer);
+
         // Store the original input string
         $this->originalInput = $locale;
 
         // Step 1: Normalize the locale string
-        $normalized = $this->normalizeLocale($locale);
+        $normalized = $normalizer->normalize($locale);
 
         // Step 2: Process with supported locales if available
         if ($supportedLocales !== null) {
-            $normalizedSupportedLocales = $this->getNormalizedSupportedLocales($supportedLocales);
+            $normalizedSupportedLocales = $parser->parseSupportedLocales($supportedLocales);
 
             // Try an exact or case-insensitive match first
-            $matchResult = $this->findMatchInSupportedLocales($normalized, $normalizedSupportedLocales);
+            $matchResult = $parser->findMatchInSupportedLocales($normalized, $normalizedSupportedLocales);
             if ($matchResult !== null) {
                 $this->locale = $matchResult;
                 return;
@@ -69,7 +75,7 @@ final readonly class BCP47Tag implements Stringable, JsonSerializable
             if (!str_contains($normalized, '-')) {
                 if ($regionRequired) {
                     // When regionRequired is true, try to find a match or throw exception
-                    $languageMatch = $this->findLanguageOnlyMatch($normalized, $normalizedSupportedLocales);
+                    $languageMatch = $parser->findLanguageOnlyMatch($normalized, $normalizedSupportedLocales);
                     if ($languageMatch !== null) {
                         $this->locale = $languageMatch;
                         return;
@@ -84,7 +90,7 @@ final readonly class BCP47Tag implements Stringable, JsonSerializable
         }
 
         // Step 3: Handle validation and fallback
-        $this->locale = $this->handleValidationAndFallback($normalized, $locale, $fallbackLocale);
+        $this->locale = $this->handleValidationAndFallback($normalized, $locale, $fallbackLocale, $normalizer);
     }
 
     public function getOriginalInput(): string
@@ -146,67 +152,19 @@ final readonly class BCP47Tag implements Stringable, JsonSerializable
     }
 
     /**
-     * Normalize the supported locales array
-     * @param string[] $supportedLocales
-     * @return string[]
-     */
-    private function getNormalizedSupportedLocales(array $supportedLocales): array
-    {
-        return array_map(
-            fn(string $loc) => $this->normalizeLocale($loc),
-            $supportedLocales,
-        );
-    }
-
-    /**
-     * Find a match for the normalized locale in the supported locales
-     *
-     * @param string[] $normalizedSupportedLocales
-     */
-    private function findMatchInSupportedLocales(string $normalized, array $normalizedSupportedLocales): ?string
-    {
-        // Try the exact match first
-        if (in_array($normalized, $normalizedSupportedLocales, true)) {
-            return $normalized;
-        }
-
-        // Try a case-insensitive match
-        $lowercaseNormalized = strtolower($normalized);
-        foreach ($normalizedSupportedLocales as $supportedLocale) {
-            if (strtolower($supportedLocale) === $lowercaseNormalized) {
-                return $supportedLocale;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Find a match for a language-only locale in the supported locales
-     *
-     * @param string[] $normalizedSupportedLocales
-     */
-    private function findLanguageOnlyMatch(string $language, array $normalizedSupportedLocales): ?string
-    {
-        foreach ($normalizedSupportedLocales as $supportedLocale) {
-            if (str_starts_with(strtolower($supportedLocale), strtolower($language) . '-')) {
-                return $supportedLocale;
-            }
-        }
-
-        return null;
-    }
-
-    /**
      * Handle validation of the locale and fallback if needed
      */
-    private function handleValidationAndFallback(string $normalized, string $originalLocale, ?string $fallbackLocale): string
-    {
+    private function handleValidationAndFallback(
+        string $normalized,
+        string $originalLocale,
+        ?string $fallbackLocale,
+        BCP47Normalizer $normalizer,
+    ): string {
         // Validate the locale
         if (!$this->isValidLocale($normalized)) {
             // If invalid and we have a fallback, use it
             if ($fallbackLocale !== null) {
-                $fallbackNormalized = $this->normalizeLocale($fallbackLocale);
+                $fallbackNormalized = $normalizer->normalize($fallbackLocale);
                 if ($this->isValidLocale($fallbackNormalized)) {
                     return $fallbackNormalized;
                 }
@@ -223,58 +181,9 @@ final readonly class BCP47Tag implements Stringable, JsonSerializable
     }
 
     /**
-     * Normalize the locale by replacing underscores with dashes and ensuring proper casing of the region
-     * Uses Intl extension when available for better locale handling
-     */
-    private function normalizeLocale(string $locale): string
-    {
-        // Replace underscores with dashes
-        $locale = str_replace('_', '-', $locale);
-
-        // Split into language and region parts
-        $parts = explode('-', strtolower($locale));
-
-        // Handle language-only case (e.g., 'en')
-        if (count($parts) === 1) {
-            // Try to find a default region for this language using Intl if available
-            if (class_exists('Symfony\Component\Intl\Locales') && Locales::exists($parts[0])) {
-                return $parts[0]; // Return language-only code if it's valid
-            }
-            return $parts[0]; // Return as-is if Intl is not available
-        }
-
-        // Handle language-region case (e.g., 'en-us')
-        if (count($parts) === 2) {
-            // Capitalize the region part
-            $parts[1] = strtoupper($parts[1]);
-
-            // Check if this is a valid locale using Intl if available
-            $normalized = implode('-', $parts);
-            if (class_exists('Symfony\Component\Intl\Locales') && Locales::exists($normalized)) {
-                return $normalized;
-            }
-
-            return $normalized; // Return a normalized format even if not in an Intl database
-        }
-
-        // Handle more complex cases (e.g., 'zh-Hans-CN')
-        // For now, just normalize the first two parts and keep the rest as they are
-        if (count($parts) > 2) {
-            $parts[0] = strtolower($parts[0]); // Language code in the lowercase
-            $parts[1] = ucfirst($parts[1]); // Script in Title Case
-            if (count($parts) > 2) {
-                $parts[2] = strtoupper($parts[2]); // Region in UPPERCASE
-            }
-
-            return implode('-', $parts);
-        }
-
-        // Fallback for any other case
-        return implode('-', $parts);
-    }
-
-    /**
      * Validate the locale format using Symfony's Locale constraint and Intl extension when available
+     *
+     * TODO: Replace this with IanaSubtagRegistry later
      */
     private function isValidLocale(string $locale): bool
     {
