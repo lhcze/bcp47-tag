@@ -1,0 +1,54 @@
+{
+    "name": "lhcze/bcp47-tag",
+    "description": "BCP47Tag parser and validator",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "LHcze\\BCP47\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "LHcze",
+            "email": "hudecek.lukas@gmail.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require": {
+        "php": ">=8.3",
+        "ext-intl": "*",
+        "symfony/intl": "6.4.*",
+        "symfony/validator": "6.4.*"
+    },
+    "require-dev": {
+        "friendsofphp/php-cs-fixer": "3.*",
+        "php-parallel-lint/php-parallel-lint": "1.*",
+        "phpmd/phpmd": "2.*",
+        "phpstan/phpstan": "2.*",
+        "phpunit/phpunit": "12.*",
+        "psy/psysh": "0.*",
+        "slevomat/coding-standard": "8.*",
+        "squizlabs/php_codesniffer": "3.*"
+    },
+    "config": {
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        }
+    },
+    "scripts": {
+        "cbf": "php vendor/bin/phpcbf --standard=./qatools/phpcs_ruleset.xml src --ignore=*\\.js,*\\.css,*\\.sh,*\\.md",
+        "cs": "php vendor/bin/phpcs -p --standard=./qatools/phpcs_ruleset.xml src --ignore=*\\.js,*\\.css,*\\.sh,*\\.md",
+        "lint": "php vendor/bin/parallel-lint --colors ./src/",
+        "md": "php vendor/bin/phpmd --color -v src/ text ./qatools/phpmd_ruleset.xml",
+        "stan": "vendor/bin/phpstan analyze ./src/ --level 8",
+        "unit": "php vendor/bin/phpunit tests",
+        "qa": [
+            "@cs",
+            "@lint",
+            "@md",
+            "@stan",
+            "@unit"
+        ]
+    }
+}
