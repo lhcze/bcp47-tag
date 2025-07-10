@@ -7,7 +7,7 @@ namespace LHcze\BCP47\Parser;
 use LHcze\BCP47\Normalizer\BCP47Normalizer;
 use LHcze\BCP47\ValueObject\ParsedTag;
 
-class BCP47Parser
+final readonly class BCP47Parser
 {
     private BCP47Normalizer $normalizer;
 

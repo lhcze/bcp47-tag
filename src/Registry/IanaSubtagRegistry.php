@@ -6,6 +6,7 @@ namespace LHcze\BCP47\Registry;
 
 use LHcze\BCP47\Normalizer\BCP47Normalizer;
 use LHcze\BCP47\Parser\BCP47Parser;
+use LHcze\BCP47\ValueObject\ParsedTag;
 use RuntimeException;
 use Throwable;
 
@@ -164,6 +165,21 @@ final readonly class IanaSubtagRegistry
     public function isGrandfathered(string $tag): bool
     {
         return in_array(strtolower($tag), $this->grandfathered, true);
+    }
+
+    /**
+     * Parse a locale string into a ParsedTag object
+     *
+     * @param string $locale The locale string to parse
+     * @return ParsedTag|null The parsed tag, or null if parsing fails
+     */
+    public function parseLocale(string $locale): ?ParsedTag
+    {
+        try {
+            return $this->parser->parseTag($locale);
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     /**

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LHcze\BCP47\Tests;
 
 use LHcze\BCP47\BCP47Tag;
+use LHcze\BCP47\ValueObject\ParsedTag;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -87,6 +88,19 @@ class BCP47TagTest extends TestCase
         $locale = new BCP47Tag('en-us');
 
         $this->assertSame('en-US', (string) $locale);
+    }
+
+    #[DataProvider('provideLocalesForParsedTag')]
+    public function testGetParsedTag(string $input, string $expectedLanguage, ?string $expectedScript, ?string $expectedRegion, array $expectedVariants): void
+    {
+        $locale = new BCP47Tag($input);
+        $parsedTag = $locale->getParsedTag();
+
+        $this->assertInstanceOf(ParsedTag::class, $parsedTag);
+        $this->assertSame($expectedLanguage, $parsedTag->getLanguage());
+        $this->assertSame($expectedScript, $parsedTag->getScript());
+        $this->assertSame($expectedRegion, $parsedTag->getRegion());
+        $this->assertSame($expectedVariants, $parsedTag->getVariants());
     }
 
     #[DataProvider('provideLocalesWithRequireCanonical')]
@@ -229,6 +243,47 @@ class BCP47TagTest extends TestCase
             'language only with empty known tags' => [
                 'en',
                 []
+            ],
+        ];
+    }
+
+    public static function provideLocalesForParsedTag(): array
+    {
+        return [
+            'language only' => [
+                'en',
+                'en',
+                null,
+                null,
+                [],
+            ],
+            'language-region' => [
+                'en-US',
+                'en',
+                null,
+                'US',
+                [],
+            ],
+            'language-script-region' => [
+                'zh-Hans-CN',
+                'zh',
+                'Hans',
+                'CN',
+                [],
+            ],
+            'language-region-variant' => [
+                'de-DE-1901',
+                'de',
+                null,
+                'DE',
+                ['1901'],
+            ],
+            'mixed case' => [
+                'eN-uS',
+                'en',
+                null,
+                'US',
+                [],
             ],
         ];
     }
