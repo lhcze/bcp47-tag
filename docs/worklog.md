@@ -179,3 +179,20 @@ The naming standardization ensures that the library uses consistent terminology 
    - Code quality checks passed
 
 This enhancement allows users to access the parsed components of a BCP47 tag directly, providing more flexibility when working with language tags in applications.
+
+## 7. 2025-07-14: Optimize ParsedTag Creation in IanaSubtagRegistry
+
+1. Refactored IanaSubtagRegistry to avoid duplicate ParsedTag creation:
+   - Added private parseTagInternal(string $locale): ?ParsedTag method
+   - Modified parseLocale() and isValidLocale() to use the shared parseTagInternal() method
+   - Ensured ParsedTag is created only once when both methods are called for the same locale
+
+2. Improved type handling in isValidLocale():
+   - Added proper null checks before accessing ParsedTag properties
+   - Ensured type safety when passing values to validation methods
+
+3. Ran tests and quality checks:
+   - All 72 tests passed with 155 assertions
+   - No regressions introduced by the changes
+
+This optimization improves performance by avoiding redundant parsing operations and ensures consistent behavior between the parseLocale() and isValidLocale() methods.

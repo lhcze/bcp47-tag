@@ -175,11 +175,7 @@ final readonly class IanaSubtagRegistry
      */
     public function parseLocale(string $locale): ?ParsedTag
     {
-        try {
-            return $this->parser->parseTag($locale);
-        } catch (Throwable) {
-            return null;
-        }
+        return $this->parseTagInternal($locale);
     }
 
     /**
@@ -195,34 +191,52 @@ final readonly class IanaSubtagRegistry
             return true;
         }
 
-        try {
-            // Parse the locale into its components
-            $parsedTag = $this->parser->parseTag($locale);
+        // Parse the locale into its components
+        $parsedTag = $this->parseTagInternal($locale);
 
-            // Validate each component
-            if (!$this->isValidLanguage($parsedTag->getLanguage())) {
-                return false;
-            }
-
-            if ($parsedTag->hasScript() && !$this->isValidScript($parsedTag->getScript())) {
-                return false;
-            }
-
-            if ($parsedTag->hasRegion() && !$this->isValidRegion($parsedTag->getRegion())) {
-                return false;
-            }
-
-            // Validate all variants
-            foreach ($parsedTag->getVariants() as $variant) {
-                if (!$this->isValidVariant($variant)) {
-                    return false;
-                }
-            }
-
-            return true;
-        } catch (Throwable) {
-            // If parsing fails, the locale is invalid
+        // If parsing failed, the locale is invalid
+        if ($parsedTag === null) {
             return false;
+        }
+
+        // Validate each component
+        if (!$this->isValidLanguage($parsedTag->getLanguage())) {
+            return false;
+        }
+
+        $script = $parsedTag->getScript();
+        if ($script !== null && !$this->isValidScript($script)) {
+            return false;
+        }
+
+        $region = $parsedTag->getRegion();
+        if ($region !== null && !$this->isValidRegion($region)) {
+            return false;
+        }
+
+        // Validate all variants
+        foreach ($parsedTag->getVariants() as $variant) {
+            if (!$this->isValidVariant($variant)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Internal method to parse a locale string into a ParsedTag object
+     * This is used by both parseLocale() and isValidLocale() to avoid duplicate parsing
+     *
+     * @param string $locale The locale string to parse
+     * @return ParsedTag|null The parsed tag, or null if parsing fails
+     */
+    private function parseTagInternal(string $locale): ?ParsedTag
+    {
+        try {
+            return $this->parser->parseTag($locale);
+        } catch (Throwable) {
+            return null;
         }
     }
 }
