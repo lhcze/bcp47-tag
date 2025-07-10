@@ -1,0 +1,131 @@
+<?xml version="1.0"?>
+<ruleset name="AdastraStandard"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sf.net/ruleset/1.0.0"
+         xsi:noNamespaceSchemaLocation="http://pmd.sf.net/ruleset_xml_schema.xsd"
+>
+    <description>Adastra PhpMD ruleset</description>
+
+    <!-- See https://phpmd.org/rules/index.html -->
+
+    <!--
+    Exclude files that unreasonably cause internal processing error.
+    Notably, as of late 2021, it were files with PHP 8 functionality, for which phpmd was not quite ready yet, e.g. `match` expression.
+    See https://github.com/phpmd/phpmd/issues/853
+    -->
+    <exclude-pattern>*ExampleFile.php</exclude-pattern>
+
+    <!-- CLEAN CODE -->
+
+    <rule ref="rulesets/cleancode.xml">
+        <exclude name="StaticAccess"/> <!-- Necessary for enums and static helpers -->
+        <exclude name="MissingImport"/> <!-- Frequent false positives, e.g. `throw new \InvalidArgumentException()`. -->
+        <exclude name="BooleanArgumentFlag"/> <!-- personal choice -->
+        <exclude name="ElseExpression"/> <!-- far too many pre-existing violations; baseline would be huge -->
+    </rule>
+
+    <!-- CODE SIZE -->
+
+    <rule ref="rulesets/codesize.xml">
+        <exclude name="ExcessiveMethodLength"/> <!-- redefined below -->
+
+        <exclude name="ExcessivePublicCount"/> <!-- redefined below -->
+        <exclude name="TooManyPublicMethods"/> <!-- redefined below -->
+
+        <exclude name="TooManyMethods"/> <!-- redefined below -->
+        <exclude name="TooManyFields"/> <!-- redefined below -->
+
+        <exclude name="CyclomaticComplexity"/> <!-- redefined below -->
+        <exclude name="NPathComplexity"/> <!-- redefined below -->
+    </rule>
+
+    <rule ref="rulesets/codesize.xml/ExcessiveMethodLength">
+        <properties>
+            <property name="minimum" value="200"/>  <!-- increased level -->
+        </properties>
+    </rule>
+
+    <rule ref="rulesets/codesize.xml/ExcessivePublicCount">
+        <properties>
+            <property name="minimum" value="50"/>  <!-- increased level -->
+        </properties>
+    </rule>
+    <rule ref="rulesets/codesize.xml/TooManyPublicMethods">
+        <properties>
+            <property name="maxmethods" value="25"/>  <!-- increased level -->
+        </properties>
+    </rule>
+
+    <rule ref="rulesets/codesize.xml/TooManyMethods">
+        <properties>
+            <property name="maxmethods" value="25"/>  <!-- increased level -->
+        </properties>
+    </rule>
+    <rule ref="rulesets/codesize.xml/TooManyFields">
+        <properties>
+            <property name="maxfields" value="25"/>  <!-- increased level -->
+        </properties>
+    </rule>
+
+    <rule ref="rulesets/codesize.xml/CyclomaticComplexity">
+        <properties>
+            <property name="reportLevel" value="16"/>  <!-- increased level -->
+        </properties>
+    </rule>
+    <rule ref="rulesets/codesize.xml/NPathComplexity">
+        <properties>
+            <property name="minimum" value="1024"/> <!-- increased level -->
+        </properties>
+    </rule>
+
+    <!-- CONTROVERSIAL -->
+
+    <rule ref="rulesets/controversial.xml">
+        <exclude name="CamelCaseVariableName"/> <!-- far too many pre-existing violations; baseline would be huge -->
+        <exclude name="CamelCaseParameterName"/> <!-- far too many pre-existing violations; baseline would be huge -->
+    </rule>
+
+    <!-- DESIGN -->
+
+    <rule ref="rulesets/design.xml">
+        <exclude name="CouplingBetweenObjects"/> <!-- redefined below -->
+    </rule>
+
+    <rule ref="rulesets/design.xml/CouplingBetweenObjects">
+        <properties>
+            <property name="maximum" value="25"/>  <!-- increased level -->
+        </properties>
+    </rule>
+
+    <!-- NAMING -->
+
+    <rule ref="rulesets/naming.xml">
+        <exclude name="LongVariable"/> <!-- redefined below -->
+        <exclude name="ShortVariable"/>  <!-- redefined below -->
+        <exclude name="ShortMethodName"/>  <!-- redefined below -->
+        <exclude name="LongClassName"/>  <!-- redefined below -->
+    </rule>
+
+    <rule ref="rulesets/naming.xml/LongVariable">
+        <properties>
+            <property name="maximum" value="35"/> <!-- limit increased -->
+        </properties>
+    </rule>
+    <rule ref="rulesets/naming.xml/ShortVariable">
+        <properties>
+            <property name="minimum" value="1"/> <!-- Frequent false positive for perfectly OK name `$id`. -->
+        </properties>
+    </rule>
+    <rule ref="rulesets/naming.xml/LongClassName">
+        <properties>
+            <property name="maximum" value="50"/> <!-- limit increased -->
+        </properties>
+    </rule>
+
+    <!-- UNUSED CODE -->
+
+    <rule ref="rulesets/unusedcode.xml">
+        <exclude name="UnusedFormalParameter"/> <!-- Frequent false positives for constructor promotion. @TODO remove when issue is resolved: https://github.com/phpmd/phpmd/issues/884 -->
+    </rule>
+
+</ruleset>
