@@ -196,3 +196,19 @@ This enhancement allows users to access the parsed components of a BCP47 tag dir
    - No regressions introduced by the changes
 
 This optimization improves performance by avoiding redundant parsing operations and ensures consistent behavior between the parseLocale() and isValidLocale() methods.
+
+## 8. 2025-07-15: Fix PHPStan Issues
+
+1. Fixed PHPStan "greater.alwaysTrue" warning in BCP47Parser:
+   - Removed redundant comparison `$partCount > $index` in parseTag method
+   - The check was unnecessary since we're already inside a block that confirms `$partCount > 0` and `$index` is 0
+
+2. Fixed PHPStan "missingType.iterableValue" warnings in IanaSubtagRegistry:
+   - Added proper value type specifications to array parameters in constructor's PHPDoc
+   - Used `array<string>` notation to specify that arrays contain string values
+
+3. Ran tests and quality checks:
+   - All PHPStan checks now pass at level 8
+   - No regressions in functionality
+
+These fixes improve the code quality and type safety of the library, making it more maintainable and reducing the potential for type-related bugs.

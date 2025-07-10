@@ -50,11 +50,11 @@ final readonly class IanaSubtagRegistry
     /**
      * Private constructor to enforce using the static factory method
      *
-     * @param array $languages Array of language subtags
-     * @param array $scripts Array of script subtags
-     * @param array $regions Array of region subtags
-     * @param array $variants Array of variant subtags
-     * @param array $grandfathered Array of grandfathered tags
+     * @param array<string> $languages Array of language subtags
+     * @param array<string> $scripts Array of script subtags
+     * @param array<string> $regions Array of region subtags
+     * @param array<string> $variants Array of variant subtags
+     * @param array<string> $grandfathered Array of grandfathered tags
      * @param BCP47Parser $parser Parser for BCP47 tags
      */
     private function __construct(
