@@ -158,3 +158,24 @@ The implementation now uses the official IANA Language Subtag Registry for valid
    - Some PHPStan issues were identified for future improvement
 
 The naming standardization ensures that the library uses consistent terminology that matches the official BCP 47 specification, making the API more intuitive for developers familiar with the standard.
+
+## 6. 2025-07-13: Add ParsedTag Access Method
+
+1. Added a new method to IanaSubtagRegistry:
+   - parseLocale(string $locale): ?ParsedTag - Parses a locale string into a ParsedTag object
+
+2. Added a new method to BCP47Tag:
+   - getParsedTag(): ?ParsedTag - Returns the ParsedTag value object for the current locale
+
+3. Added tests for the new functionality:
+   - Added test for getParsedTag method
+   - Added data provider for various locale formats
+
+4. Updated documentation:
+   - Updated worklog.md to document the changes
+
+5. Ran tests and quality checks:
+   - All tests passed
+   - Code quality checks passed
+
+This enhancement allows users to access the parsed components of a BCP47 tag directly, providing more flexibility when working with language tags in applications.

@@ -6,7 +6,7 @@ namespace LHcze\BCP47\Normalizer;
 
 use Symfony\Component\Intl\Locales;
 
-class BCP47Normalizer
+final readonly class BCP47Normalizer
 {
     /**
      * Normalize the locale by replacing underscores with dashes and ensuring proper casing of the region

@@ -9,6 +9,7 @@ use JsonSerializable;
 use LHcze\BCP47\Normalizer\BCP47Normalizer;
 use LHcze\BCP47\Parser\BCP47Parser;
 use LHcze\BCP47\Registry\IanaSubtagRegistry;
+use LHcze\BCP47\ValueObject\ParsedTag;
 use Stringable;
 
 final readonly class BCP47Tag implements Stringable, JsonSerializable
@@ -134,6 +135,16 @@ final readonly class BCP47Tag implements Stringable, JsonSerializable
     public function getUCU(): string
     {
         return str_replace('-', '_', $this->getUC());
+    }
+
+    /**
+     * Get the parsed tag as a value object
+     *
+     * @return ParsedTag|null The parsed tag, or null if parsing fails
+     */
+    public function getParsedTag(): ?ParsedTag
+    {
+        return $this->registry->parseLocale($this->locale);
     }
 
     public function jsonSerialize(): string
