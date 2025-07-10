@@ -77,6 +77,11 @@ echo $tag->getLCU(); // en_US
 echo $tag->getUCU(); // EN_US
 echo $tag->getLC();  // en-us
 echo $tag->getUC();  // EN-US
+
+// Inspect parsed parts (language, script, region, variants)
+$parsed = $tag->getParsedTag();
+echo $parsed?->getLanguage(); // en
+echo $parsed?->getRegion();   // US
 ```
 
 ---
@@ -112,6 +117,7 @@ BCP47Tag uses the latest **IANA Language Subtag Registry** to validate languages
 | `getLCU()`        | Lowercase, underscored (`xx_xx`)             |
 | `getUCU()`        | Uppercase, underscored (`XX_XX`)             |
 | `getOriginalInput()` | Raw input string                          |
+| `getParsedTag()` | Returns the ParsedTag value object for advanced inspection |
 | `__toString()`    | Returns the normalized tag                   |
 
 ---
