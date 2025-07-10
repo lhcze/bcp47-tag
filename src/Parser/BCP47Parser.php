@@ -98,7 +98,7 @@ final readonly class BCP47Parser
             $index = 0;
 
             // Check for script (4 letters, first is uppercase, rest lowercase)
-            if ($partCount > $index && strlen($remainingParts[$index]) === 4 && ctype_alpha($remainingParts[$index])) {
+            if (strlen($remainingParts[$index]) === 4 && ctype_alpha($remainingParts[$index])) {
                 $script = ucfirst(strtolower($remainingParts[$index]));
                 $index++;
             }
