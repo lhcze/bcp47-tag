@@ -8,10 +8,8 @@ use InvalidArgumentException;
 use JsonSerializable;
 use LHcze\BCP47\Normalizer\BCP47Normalizer;
 use LHcze\BCP47\Parser\BCP47Parser;
+use LHcze\BCP47\Registry\IanaSubtagRegistry;
 use Stringable;
-use Symfony\Component\Intl\Locales;
-use Symfony\Component\Validator\Constraints\Locale as LocaleConstraint;
-use Symfony\Component\Validator\Validation;
 
 final readonly class BCP47Tag implements Stringable, JsonSerializable
 {
@@ -21,38 +19,30 @@ final readonly class BCP47Tag implements Stringable, JsonSerializable
     /** Original input string */
     private string $originalInput;
 
+    /** IANA Language Subtag Registry */
+    private IanaSubtagRegistry $registry;
+
     /**
-     * This should also be able to handle situations when raw input is `en-us` and we have only `en-US` in the
-     * supportedLocales list. In that case, we should return `en-US` as the normalized locale.
-     *
-     * Only when everything fails, we could use the fallbackLocale. But first, an attempt to make a proper conversion
-     * of raw locale is a priority.
-     *
-     * If optional arguments are not provided, we should only validate that locale has xx-xx format and normalize it
-     * to xx-XX. But if it's just xx for example and we have no supported locales to compare it against and validate it,
-     * let's throw an exception.
-     *
-     * It is possible to use PHP's Intl extension if it makes sense and would do the jobs faster and better than we
-     * would.
-     *
-     * @param string $locale Raw locale input which could be anything like `en`, `En`, `EN`, `en-en`, etc.
-     * @param string|null $fallbackLocale If everything fails, use this locale instead.
-     * @param string[]|null $supportedLocales Comes as an array list with values in the format of
-     * `xx-XX`, `xx_XX`, `xx-xx`, `xx_xx`
-     * @param bool $regionRequired If true and the locale is language-only (e.g., 'en'),
-     *                             it will attempt to match with the first supported locale with that language
+     * @param string $locale Raw string locale input
+     * @param string|null $fallbackLocale If everything fails, use this locale instead
+     * @param string[]|null $knownTags A list of known canonical BCP 47 language tags
+     * @param bool $requireCanonical If true and the locale is language-only (e.g., 'en'),
+     *                             it will attempt to match with the first known tag with that language
      *                             and throw an exception if no match is found
      * @throws InvalidArgumentException When the locale is invalid and no fallback is provided
      */
     public function __construct(
         string $locale,
         ?string $fallbackLocale = null,
-        ?array $supportedLocales = null,
-        bool $regionRequired = false,
+        ?array $knownTags = null,
+        bool $requireCanonical = false,
     ) {
         // Initialize helper classes
         $normalizer = new BCP47Normalizer();
         $parser = new BCP47Parser($normalizer);
+
+        // Load the IANA registry
+        $this->registry = IanaSubtagRegistry::loadFromFile(__DIR__ . '/../resources/iana.json', $parser);
 
         // Store the original input string
         $this->originalInput = $locale;
@@ -60,12 +50,12 @@ final readonly class BCP47Tag implements Stringable, JsonSerializable
         // Step 1: Normalize the locale string
         $normalized = $normalizer->normalize($locale);
 
-        // Step 2: Process with supported locales if available
-        if ($supportedLocales !== null) {
-            $normalizedSupportedLocales = $parser->parseSupportedLocales($supportedLocales);
+        // Step 2: Process with known tags if available
+        if ($knownTags !== null) {
+            $normalizedKnownTags = $parser->parseKnownTags($knownTags);
 
             // Try an exact or case-insensitive match first
-            $matchResult = $parser->findMatchInSupportedLocales($normalized, $normalizedSupportedLocales);
+            $matchResult = $parser->findMatchInKnownTags($normalized, $normalizedKnownTags);
             if ($matchResult !== null) {
                 $this->locale = $matchResult;
                 return;
@@ -73,19 +63,19 @@ final readonly class BCP47Tag implements Stringable, JsonSerializable
 
             // Handle language-only case
             if (!str_contains($normalized, '-')) {
-                if ($regionRequired) {
-                    // When regionRequired is true, try to find a match or throw exception
-                    $languageMatch = $parser->findLanguageOnlyMatch($normalized, $normalizedSupportedLocales);
+                if ($requireCanonical) {
+                    // When requireCanonical is true, try to find a match or throw exception
+                    $languageMatch = $parser->findLanguageOnlyMatch($normalized, $normalizedKnownTags);
                     if ($languageMatch !== null) {
                         $this->locale = $languageMatch;
                         return;
                     }
 
                     throw new InvalidArgumentException(
-                        sprintf('No region found for language "%s" in supported locales.', $normalized),
+                        sprintf('No region found for language "%s" in known tags.', $normalized),
                     );
                 }
-                // When the regionRequired is false, keep the language-only locale as is
+                // When requireCanonical is false, keep the language-only locale as is
             }
         }
 
@@ -181,36 +171,11 @@ final readonly class BCP47Tag implements Stringable, JsonSerializable
     }
 
     /**
-     * Validate the locale format using Symfony's Locale constraint and Intl extension when available
-     *
-     * TODO: Replace this with IanaSubtagRegistry later
+     * Validate the locale using the IANA Language Subtag Registry
      */
     private function isValidLocale(string $locale): bool
     {
-        // First try with Intl extension if available
-        if (class_exists('Symfony\Component\Intl\Locales')) {
-            // Check if it's a language-only code (e.g., 'en')
-            if (!str_contains($locale, '-')) {
-                return Locales::exists($locale);
-            }
-
-            // Check if it's a full locale code (e.g., 'en-US')
-            if (Locales::exists($locale)) {
-                return true;
-            }
-        }
-
-        // Additional validation for region format (must be 2 characters for standard locales)
-        $parts = explode('-', $locale);
-        if (count($parts) === 2 && strlen($parts[1]) !== 2) {
-            return false;
-        }
-
-        // Fallback to Symfony's validator
-        $validator = Validation::createValidator();
-        $violations = $validator->validate($locale, new LocaleConstraint());
-
-        return count($violations) === 0;
+        return $this->registry->isValidLocale($locale);
     }
 
     /**

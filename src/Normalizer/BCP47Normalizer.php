@@ -17,6 +17,12 @@ class BCP47Normalizer
         // Replace underscores with dashes
         $locale = str_replace('_', '-', $locale);
 
+        // Special handling for grandfathered tags (e.g., 'i-klingon')
+        // These should be kept as-is except for underscore replacement
+        if (str_starts_with(strtolower($locale), 'i-') || str_starts_with(strtolower($locale), 'x-')) {
+            return $locale;
+        }
+
         // Split into language and region parts
         $parts = explode('-', strtolower($locale));
 
