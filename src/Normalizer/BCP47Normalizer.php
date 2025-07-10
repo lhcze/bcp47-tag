@@ -4,13 +4,10 @@ declare(strict_types=1);
 
 namespace LHcze\BCP47\Normalizer;
 
-use Symfony\Component\Intl\Locales;
-
 final readonly class BCP47Normalizer
 {
     /**
      * Normalize the locale by replacing underscores with dashes and ensuring proper casing of the region
-     * Uses Intl extension when available for better locale handling
      */
     public function normalize(string $locale): string
     {
@@ -28,25 +25,14 @@ final readonly class BCP47Normalizer
 
         // Handle language-only case (e.g., 'en')
         if (count($parts) === 1) {
-            // Try to find a default region for this language using Intl if available
-            if (class_exists('Symfony\Component\Intl\Locales') && Locales::exists($parts[0])) {
-                return $parts[0]; // Return language-only code if it's valid
-            }
-            return $parts[0]; // Return as-is if Intl is not available
+            return $parts[0]; // Return language-only code
         }
 
         // Handle language-region case (e.g., 'en-us')
         if (count($parts) === 2) {
             // Capitalize the region part
             $parts[1] = strtoupper($parts[1]);
-
-            // Check if this is a valid locale using Intl if available
-            $normalized = implode('-', $parts);
-            if (class_exists('Symfony\Component\Intl\Locales') && Locales::exists($normalized)) {
-                return $normalized;
-            }
-
-            return $normalized; // Return a normalized format even if not in an Intl database
+            return implode('-', $parts);
         }
 
         // Handle more complex cases (e.g., 'zh-Hans-CN')

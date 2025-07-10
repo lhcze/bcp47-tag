@@ -6,7 +6,7 @@ declare(strict_types=1);
 // Do not edit manually
 
 return array (
-  'languages' =>
+  'languages' => 
   array (
     0 => 'aa',
     1 => 'aaa',
@@ -8277,7 +8277,7 @@ return array (
     8266 => 'zza',
     8267 => 'zzj',
   ),
-  'scripts' =>
+  'scripts' => 
   array (
     0 => 'Adlm',
     1 => 'Afak',
@@ -8505,7 +8505,7 @@ return array (
     223 => 'Zyyy',
     224 => 'Zzzz',
   ),
-  'regions' =>
+  'regions' => 
   array (
     0 => '001',
     1 => '002',
@@ -8813,7 +8813,7 @@ return array (
     303 => 'ZW',
     304 => 'ZZ',
   ),
-  'variants' =>
+  'variants' => 
   array (
     0 => '1606nict',
     1 => '1694acad',
@@ -8944,7 +8944,7 @@ return array (
     126 => 'wadegile',
     127 => 'xsistemo',
   ),
-  'grandfathered' =>
+  'grandfathered' => 
   array (
     0 => 'art-lojban',
     1 => 'cel-gaulish',

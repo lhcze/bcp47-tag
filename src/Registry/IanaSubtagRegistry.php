@@ -10,42 +10,53 @@ use LHcze\BCP47\ValueObject\ParsedTag;
 use RuntimeException;
 use Throwable;
 
-final readonly class IanaSubtagRegistry
+final class IanaSubtagRegistry
 {
     /**
      * Array of valid language subtags
      * @var string[]
      */
-    private array $languages;
+    private readonly array $languages;
 
     /**
      * Array of valid script subtags
      * @var string[]
      */
-    private array $scripts;
+    private readonly array $scripts;
 
     /**
      * Array of valid region subtags
      * @var string[]
      */
-    private array $regions;
+    private readonly array $regions;
 
     /**
      * Array of valid variant subtags
      * @var string[]
      */
-    private array $variants;
+    private readonly array $variants;
 
     /**
      * Array of grandfathered tags
      * @var string[]
      */
-    private array $grandfathered;
+    private readonly array $grandfathered;
 
     /**
      * Parser for BCP47 tags
      */
-    private BCP47Parser $parser;
+    private readonly BCP47Parser $parser;
+
+    /**
+     * Static cache for the registry data
+     * @var array<string, array<string>>|null
+     */
+    private static ?array $cache = null;
+
+    /**
+     * Static instance of the registry
+     */
+    private static ?self $instance = null;
 
     /**
      * Private constructor to enforce using the static factory method
@@ -74,26 +85,24 @@ final readonly class IanaSubtagRegistry
     }
 
     /**
-     * Load the registry from a JSON file
+     * Load the registry data
      *
-     * @param string $path Path to the JSON file
      * @param BCP47Parser|null $parser Optional parser instance (will create one if not provided)
-     * @throws RuntimeException If the file cannot be read or parsed
+     * @return self The registry instance
      */
-    public static function loadFromFile(string $path, ?BCP47Parser $parser = null): self
+    public static function load(?BCP47Parser $parser = null): self
     {
-        if (!file_exists($path)) {
-            throw new RuntimeException("Registry file not found: $path");
+        if (self::$instance !== null) {
+            return self::$instance;
         }
 
-        $jsonContent = file_get_contents($path);
-        if ($jsonContent === false) {
-            throw new RuntimeException("Failed to read registry file: $path");
-        }
+        if (self::$cache === null) {
+            $registryFile = __DIR__ . '/../Resources/IanaSubtagRegistry.php';
+            if (!file_exists($registryFile)) {
+                throw new RuntimeException("Registry file not found: $registryFile");
+            }
 
-        $data = json_decode($jsonContent, true);
-        if ($data === null) {
-            throw new RuntimeException("Failed to parse registry JSON: " . json_last_error_msg());
+            self::$cache = require $registryFile;
         }
 
         // Create a parser if one wasn't provided
@@ -102,14 +111,29 @@ final readonly class IanaSubtagRegistry
             $parser = new BCP47Parser($normalizer);
         }
 
-        return new self(
-            $data['languages'] ?? [],
-            $data['scripts'] ?? [],
-            $data['regions'] ?? [],
-            $data['variants'] ?? [],
-            $data['grandfathered'] ?? [],
+        self::$instance = new self(
+            self::$cache['languages'] ?? [],
+            self::$cache['scripts'] ?? [],
+            self::$cache['regions'] ?? [],
+            self::$cache['variants'] ?? [],
+            self::$cache['grandfathered'] ?? [],
             $parser,
         );
+
+        return self::$instance;
+    }
+
+    /**
+     * For backward compatibility - load from a JSON file
+     *
+     * @param string $path Path to the JSON file
+     * @param BCP47Parser|null $parser Optional parser instance (will create one if not provided)
+     * @throws RuntimeException If the file cannot be read or parsed
+     * @deprecated Use load() instead
+     */
+    public static function loadFromFile(string $path, ?BCP47Parser $parser = null): self
+    {
+        return self::load($parser);
     }
 
     /**
