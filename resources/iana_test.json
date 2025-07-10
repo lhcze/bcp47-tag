@@ -1,0 +1,7 @@
+{
+    "languages": ["en", "fr", "de", "zh"],
+    "scripts": ["Latn", "Cyrl", "Hans"],
+    "regions": ["US", "FR", "DE", "CN"],
+    "variants": ["1901", "1996"],
+    "grandfathered": ["i-klingon", "i-navajo"]
+}

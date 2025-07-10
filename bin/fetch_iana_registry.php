@@ -1,0 +1,142 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * This script downloads the IANA Language Subtag Registry and converts it to JSON
+ * for querying in the IanaSubtagRegistry class.
+ */
+
+// URL of the IANA Language Subtag Registry
+$registryUrl = 'https://www.iana.org/assignments/language-subtag-registry/language-subtag-registry';
+
+// Output file path
+$outputFile = __DIR__ . '/../resources/iana.json';
+
+echo "Downloading IANA Language Subtag Registry...\n";
+
+// Use cURL instead of file_get_contents to have more control over the request
+$ch = curl_init($registryUrl);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
+curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+
+$registryContent = curl_exec($ch);
+$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+$error = curl_error($ch);
+curl_close($ch);
+
+if ($registryContent === false || $httpCode !== 200) {
+    echo "Error: Failed to download the registry file. HTTP Code: $httpCode, Error: $error\n";
+    exit(1);
+}
+
+echo "Parsing registry data...\n";
+
+// Initialize arrays to store different types of subtags
+$languages = [];
+$scripts = [];
+$regions = [];
+$variants = [];
+$grandfathered = [];
+
+// Split the registry into sections by '%%'
+$sections = explode('%%', $registryContent);
+
+// Process each section
+foreach ($sections as $section) {
+    // Skip empty sections
+    if (trim($section) === '') {
+        continue;
+    }
+
+    // Parse the section into key-value pairs
+    $lines = explode("\n", $section);
+    $data = [];
+    $currentKey = null;
+    $currentValue = '';
+
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if ($line === '') {
+            continue;
+        }
+
+        // Check if this is a new key
+        if (preg_match('/^([A-Za-z-]+):(.*)$/', $line, $matches)) {
+            // Save the previous key-value pair if it exists
+            if ($currentKey !== null) {
+                $data[$currentKey] = trim($currentValue);
+            }
+
+            $currentKey = trim($matches[1]);
+            $currentValue = trim($matches[2]);
+        } else {
+            // This is a continuation of the previous value
+            $currentValue .= ' ' . $line;
+        }
+    }
+
+    // Save the last key-value pair
+    if ($currentKey !== null) {
+        $data[$currentKey] = trim($currentValue);
+    }
+
+    // Categorize the section based on its Type
+    if (isset($data['Type'])) {
+        switch ($data['Type']) {
+            case 'language':
+                if (isset($data['Subtag'])) {
+                    $languages[] = strtolower($data['Subtag']);
+                }
+                break;
+            case 'script':
+                if (isset($data['Subtag'])) {
+                    $scripts[] = ucfirst(strtolower($data['Subtag']));
+                }
+                break;
+            case 'region':
+                if (isset($data['Subtag'])) {
+                    $regions[] = strtoupper($data['Subtag']);
+                }
+                break;
+            case 'variant':
+                if (isset($data['Subtag'])) {
+                    $variants[] = strtolower($data['Subtag']);
+                }
+                break;
+            case 'grandfathered':
+                if (isset($data['Tag'])) {
+                    $grandfathered[] = strtolower($data['Tag']);
+                }
+                break;
+        }
+    }
+}
+
+// Sort arrays for faster lookups
+sort($languages);
+sort($scripts);
+sort($regions);
+sort($variants);
+sort($grandfathered);
+
+// Create the final JSON structure
+$jsonData = [
+    'languages' => array_values(array_unique($languages)),
+    'scripts' => array_values(array_unique($scripts)),
+    'regions' => array_values(array_unique($regions)),
+    'variants' => array_values(array_unique($variants)),
+    'grandfathered' => array_values(array_unique($grandfathered)),
+];
+
+// Save to a JSON file with pretty-printing
+$jsonContent = json_encode($jsonData, JSON_PRETTY_PRINT);
+if (file_put_contents($outputFile, $jsonContent) === false) {
+    echo "Error: Failed to write to output file.\n";
+    exit(1);
+}
+
+echo "IANA registry saved to resources/iana.json\n";
+echo "Done!\n";

@@ -44,7 +44,17 @@
 
 Project structure is now ready for implementing the actual functionality.
 
-## 2025-07-10: Modularize BCP47Tag Internals
+## 2. 2025-07-09: QA tools and initial code quality
+1. Updated version of dev required tools to current major + wildcard
+2. added qa-related script into composer for quickly running  phpcbf, phpcs, parallel, phpmd, phpstan & phpunit
+3. added code standards / rulesets into qatools
+4. matched the code quality according to qatools
+5. all unit tests passed
+6. git initialized and current state commited
+
+Project is ready for the major refactor.
+
+## 3. 2025-07-10: Modularize BCP47Tag Internals
 
 1. Implemented BCP47Normalizer class with:
    - normalize(string $locale): string - Moved the normalizeLocale logic from BCP47Tag
@@ -70,12 +80,81 @@ Project structure is now ready for implementing the actual functionality.
 
 The refactoring successfully modularized the BCP47Tag internals while maintaining the same external behavior, setting the foundation for full RFC 5646 compliance later.
 
-## 2. 2025-07-09: QA tools and initial code quality
-1. Updated version of dev required tools to current major + wildcard
-2. added qa-related script into composer for quickly running  phpcbf, phpcs, parallel, phpmd, phpstan & phpunit
-3. added code standards / rulesets into qatools
-4. matched the code quality according to qatools
-5. all unit tests passed
-6. git initialized and current state commited
+## 4. 2025-07-11: Implement IANA Subtag Registry
 
-Project is ready for the major refactor.
+1. Created a script to download and parse the IANA Language Subtag Registry:
+   - Created bin/fetch_iana_registry.php
+   - Implemented downloading from the official URL using cURL
+   - Parsed the registry into sections by '%%'
+   - Extracted subtags by type (language, script, region, variant, grandfathered)
+   - Saved as JSON to resources/iana.json
+
+2. Implemented the IanaSubtagRegistry class:
+   - Added private readonly arrays for languages, scripts, regions, variants, grandfathered
+   - Implemented static loadFromFile method to load the JSON data
+   - Implemented validation methods for each subtag type (isValidLanguage, isValidScript, isValidRegion, isValidVariant, isGrandfathered)
+   - Implemented isValidLocale method to validate a complete locale using the parser
+
+3. Implemented the ParsedTag value object:
+   - Added readonly properties for language, script, region, variants
+   - Added getters for all properties
+   - Added helper methods (hasScript, hasRegion, hasVariants)
+
+4. Implemented BCP47Parser.parseTag method:
+   - Added method to parse a locale string into a ParsedTag object
+   - Handled language, script, region, and variants
+   - Added TODO for handling extensions and private use in future versions
+
+5. Updated BCP47Tag to use IanaSubtagRegistry:
+   - Added IanaSubtagRegistry property
+   - Loaded the registry in constructor
+   - Updated handleValidationAndFallback to use the registry
+   - Replaced isValidLocale method with one that uses the registry
+   - Removed Symfony Intl and Validator dependencies
+
+6. Added tests for the new functionality:
+   - Tests for IanaSubtagRegistry loading and validation
+   - Tests for BCP47Parser.parseTag
+   - Tests for BCP47Tag with real registry
+   - Added test for grandfathered tag
+   - Added stubs for extension and private-use tests
+
+7. Updated documentation:
+   - Created README.md with usage examples and feature list
+   - Updated worklog.md
+
+8. Ran tests and quality checks:
+   - All tests passed
+   - Code quality checks passed
+
+The implementation now uses the official IANA Language Subtag Registry for validation, making it more accurate and compliant with the BCP 47 standard. The foundation is set for supporting extensions and private use subtags in the future.
+
+## 5. 2025-07-12: Standardize Naming to Match BCP 47 Terminology
+
+1. Updated BCP47Tag constructor parameters:
+   - Renamed `$supportedLocales` to `$knownTags` to match BCP 47 terminology
+   - Renamed `$regionRequired` to `$requireCanonical` for clarity and consistency
+
+2. Updated internal references in BCP47Tag:
+   - Renamed `$supportedLocales` to `$knownTags`
+   - Renamed `$normalizedSupportedLocales` to `$normalizedKnownTags`
+   - Renamed `$regionRequired` to `$requireCanonical`
+   - Updated error messages to use "known tags" instead of "supported locales"
+
+3. Updated BCP47Parser method names and parameters:
+   - Renamed `parseSupportedLocales()` to `parseKnownTags()`
+   - Renamed `findMatchInSupportedLocales()` to `findMatchInKnownTags()`
+   - Updated parameter names and variable names to use "knownTags" consistently
+
+4. Updated tests to match the new terminology:
+   - Updated test method names and data providers
+   - Updated parameter names in test methods
+   - Updated exception messages in tests
+   - Updated test data keys to use "require canonical" instead of "region required"
+
+5. Ran tests and quality checks:
+   - All 67 tests passed with 130 assertions
+   - Code style checks passed
+   - Some PHPStan issues were identified for future improvement
+
+The naming standardization ensures that the library uses consistent terminology that matches the official BCP 47 specification, making the API more intuitive for developers familiar with the standard.

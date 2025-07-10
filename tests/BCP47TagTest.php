@@ -20,13 +20,13 @@ class BCP47TagTest extends TestCase
         $this->assertSame($expected, $locale->getNormalized());
     }
 
-    #[DataProvider('provideLocalesWithSupportedLocales')]
-    public function testConstructWithSupportedLocales(
+    #[DataProvider('provideLocalesWithKnownTags')]
+    public function testConstructWithKnownTags(
         string $input,
-        array $supportedLocales,
+        array $knownTags,
         string $expected
     ): void {
-        $locale = new BCP47Tag($input, null, $supportedLocales);
+        $locale = new BCP47Tag($input, null, $knownTags);
 
         $this->assertSame($input, $locale->getOriginalInput());
         $this->assertSame($expected, $locale->getNormalized());
@@ -36,10 +36,10 @@ class BCP47TagTest extends TestCase
     public function testConstructWithFallbackBCP47Tag(
         string $input,
         string $fallback,
-        ?array $supportedLocales,
+        ?array $knownTags,
         string $expected
     ): void {
-        $locale = new BCP47Tag($input, $fallback, $supportedLocales);
+        $locale = new BCP47Tag($input, $fallback, $knownTags);
 
         $this->assertSame($input, $locale->getOriginalInput());
         $this->assertSame($expected, $locale->getNormalized());
@@ -89,28 +89,28 @@ class BCP47TagTest extends TestCase
         $this->assertSame('en-US', (string) $locale);
     }
 
-    #[DataProvider('provideLocalesWithRegionRequired')]
-    public function testConstructWithRegionRequired(
+    #[DataProvider('provideLocalesWithRequireCanonical')]
+    public function testConstructWithRequireCanonical(
         string $input,
-        array $supportedLocales,
-        bool $regionRequired,
+        array $knownTags,
+        bool $requireCanonical,
         string $expected
     ): void {
-        $locale = new BCP47Tag($input, null, $supportedLocales, $regionRequired);
+        $locale = new BCP47Tag($input, null, $knownTags, $requireCanonical);
 
         $this->assertSame($input, $locale->getOriginalInput());
         $this->assertSame($expected, $locale->getNormalized());
     }
 
-    #[DataProvider('provideLocalesWithRegionRequiredExceptions')]
-    public function testConstructWithRegionRequiredThrowsException(
+    #[DataProvider('provideLocalesWithRequireCanonicalExceptions')]
+    public function testConstructWithRequireCanonicalThrowsException(
         string $input,
-        array $supportedLocales
+        array $knownTags
     ): void {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage(sprintf('No region found for language "%s" in supported locales.', $input));
+        $this->expectExceptionMessage(sprintf('No region found for language "%s" in known tags.', $input));
 
-        new BCP47Tag($input, null, $supportedLocales, true);
+        new BCP47Tag($input, null, $knownTags, true);
     }
 
     public static function provideValidLocales(): array
@@ -122,17 +122,21 @@ class BCP47TagTest extends TestCase
             'uppercase' => ['EN-US', 'en-US'],
             'language only' => ['en', 'en'],
             'three-part locale' => ['zh-Hans-CN', 'zh-Hans-CN'],
+            'grandfathered tag' => ['i-klingon', 'i-klingon'],
+            // TODO: These are stubs for future implementation
+            // 'extension tag' => ['en-US-x-private', 'en-US-x-private'],
+            // 'private use' => ['x-private', 'x-private'],
         ];
     }
 
-    public static function provideLocalesWithSupportedLocales(): array
+    public static function provideLocalesWithKnownTags(): array
     {
         return [
             'exact match' => ['en-US', ['en-US', 'fr-FR'], 'en-US'],
             'case-insensitive match' => ['en-us', ['en-US', 'fr-FR'], 'en-US'],
             'language-only match' => ['en', ['en-US', 'fr-FR'], 'en'],
             'no match, valid locale' => ['de-DE', ['en-US', 'fr-FR'], 'de-DE'],
-            'with underscore in supported' => ['en-us', ['en_US', 'fr_FR'], 'en-US'],
+            'with underscore in known tags' => ['en-us', ['en_US', 'fr_FR'], 'en-US'],
         ];
     }
 
@@ -179,34 +183,34 @@ class BCP47TagTest extends TestCase
         ];
     }
 
-    public static function provideLocalesWithRegionRequired(): array
+    public static function provideLocalesWithRequireCanonical(): array
     {
         return [
-            'language only with region required true' => [
+            'language only with require canonical true' => [
                 'en',
                 ['en-US', 'en-UK', 'fr-FR'],
                 true,
                 'en-US'
             ],
-            'language only with region required false' => [
+            'language only with require canonical false' => [
                 'en',
                 ['en-US', 'en-UK', 'fr-FR'],
                 false,
                 'en'
             ],
-            'full locale with region required true' => [
+            'full locale with require canonical true' => [
                 'en-UK',
                 ['en-US', 'en-UK', 'fr-FR'],
                 true,
                 'en-UK'
             ],
-            'full locale with region required false' => [
+            'full locale with require canonical false' => [
                 'en-UK',
                 ['en-US', 'en-UK', 'fr-FR'],
                 false,
                 'en-UK'
             ],
-            'case insensitive with region required true' => [
+            'case insensitive with require canonical true' => [
                 'EN',
                 ['en-US', 'en-UK', 'fr-FR'],
                 true,
@@ -215,14 +219,14 @@ class BCP47TagTest extends TestCase
         ];
     }
 
-    public static function provideLocalesWithRegionRequiredExceptions(): array
+    public static function provideLocalesWithRequireCanonicalExceptions(): array
     {
         return [
             'language only with no matching region' => [
                 'de',
                 ['en-US', 'en-UK', 'fr-FR']
             ],
-            'language only with empty supported locales' => [
+            'language only with empty known tags' => [
                 'en',
                 []
             ],
