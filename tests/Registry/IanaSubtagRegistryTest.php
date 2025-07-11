@@ -76,7 +76,7 @@ class IanaSubtagRegistryTest extends TestCase
         return [
             'valid script' => ['Latn', true],
             'valid script lowercase' => ['latn', true],
-            'invalid script' => ['Zzzz', false],
+            'valid uncoded script' => ['Zzzz', true],
         ];
     }
 
@@ -85,7 +85,7 @@ class IanaSubtagRegistryTest extends TestCase
         return [
             'valid region' => ['US', true],
             'valid region lowercase' => ['us', true],
-            'invalid region' => ['ZZ', false],
+            'valid unknown region' => ['ZZ', true],
         ];
     }
 
@@ -111,9 +111,9 @@ class IanaSubtagRegistryTest extends TestCase
             'valid language only' => ['en', true],
             'valid language-region' => ['en-US', true],
             'valid language-script-region' => ['zh-Hans-CN', true],
+            'valid Unknown or Invalid Territory Script in language-script-region' => ['en-Zzzz-US', true],
+            'valid Unknown or Invalid Territory Region in language-region' => ['en-ZZ', true],
             'invalid language' => ['zz-US', false],
-            'invalid script' => ['en-Zzzz-US', false],
-            'invalid region' => ['en-ZZ', false],
         ];
     }
 }
