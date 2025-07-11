@@ -212,3 +212,40 @@ This optimization improves performance by avoiding redundant parsing operations 
    - No regressions in functionality
 
 These fixes improve the code quality and type safety of the library, making it more maintainable and reducing the potential for type-related bugs.
+
+## 9. 2025-07-16: Optimize Registry Loading and Remove Symfony Dependencies
+
+1. Removed unnecessary symfony/intl checks in BCP47Normalizer:
+   - Removed redundant checks that didn't affect the normalization behavior
+   - Simplified the code by removing conditional logic that always returned the same value
+
+2. Removed symfony/intl and symfony/validator dependencies:
+   - Removed both packages from composer.json
+   - The library now relies solely on the IANA registry for validation
+
+3. Switched from JSON to a precompiled PHP static file for the registry:
+   - Created src/Resources directory to store the static PHP file
+   - Modified bin/fetch_iana_registry.php to generate a PHP file with a return statement
+   - The PHP file is loaded directly with require, eliminating JSON parsing overhead
+
+4. Implemented a static lazy loading pattern in IanaSubtagRegistry:
+   - Added static cache property to store the loaded registry data
+   - Added static instance property to implement the singleton pattern
+   - Added static load() method that loads the registry only once per request
+   - Kept loadFromFile() method for backward compatibility
+
+5. Updated BCP47Tag to use the new static registry loading method:
+   - Changed from loadFromFile() to load()
+
+6. Added a composer script for refreshing the registry:
+   - Added bcp47:refresh script that runs bin/fetch_iana_registry.php
+
+7. Updated tests to work with the new static registry structure:
+   - Created a test version of the static PHP registry file
+   - Updated IanaSubtagRegistryTest to use the new load() method
+
+8. Ran tests and quality checks:
+   - All tests passed
+   - Code quality checks passed
+
+These optimizations improve performance by eliminating JSON parsing overhead and implementing a lazy loading pattern that loads the registry only once per request. The removal of symfony dependencies makes the library more lightweight and self-contained.

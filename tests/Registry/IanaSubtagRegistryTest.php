@@ -18,7 +18,7 @@ class IanaSubtagRegistryTest extends TestCase
     {
         $normalizer = new BCP47Normalizer();
         $parser = new BCP47Parser($normalizer);
-        self::$registry = IanaSubtagRegistry::loadFromFile(__DIR__ . '/../../resources/iana_test.json', $parser);
+        self::$registry = IanaSubtagRegistry::load($parser);
     }
 
     public function testRegistryLoading(): void
