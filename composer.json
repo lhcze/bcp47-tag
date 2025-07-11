@@ -23,8 +23,6 @@
     "require": {
         "php": ">=8.3",
         "ext-intl": "*",
-        "symfony/intl": "6.4.*",
-        "symfony/validator": "6.4.*",
         "ext-curl": "*"
     },
     "require-dev": {
@@ -49,6 +47,7 @@
         "md": "php vendor/bin/phpmd --color -v src/ text ./qatools/phpmd_ruleset.xml",
         "stan": "vendor/bin/phpstan analyze ./src/ --level 8",
         "unit": "php vendor/bin/phpunit tests",
+        "iana:refresh": "php bin/fetch_iana_registry.php",
         "qa": [
             "@cs",
             "@lint",

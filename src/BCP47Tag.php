@@ -43,7 +43,7 @@ final readonly class BCP47Tag implements Stringable, JsonSerializable
         $parser = new BCP47Parser($normalizer);
 
         // Load the IANA registry
-        $this->registry = IanaSubtagRegistry::loadFromFile(__DIR__ . '/../resources/iana.json', $parser);
+        $this->registry = IanaSubtagRegistry::load($parser);
 
         // Store the original input string
         $this->originalInput = $locale;
@@ -106,6 +106,7 @@ final readonly class BCP47Tag implements Stringable, JsonSerializable
     }
 
     /**
+     * @internal
      * Get the lowercase variant of the normalized locale (e.g., `xx-xx`).
      */
     public function getLC(): string
@@ -114,6 +115,7 @@ final readonly class BCP47Tag implements Stringable, JsonSerializable
     }
 
     /**
+     * @internal
      * Get the uppercase variant of the normalized locale (e.g., `XX-XX`).
      */
     public function getUC(): string
@@ -122,6 +124,7 @@ final readonly class BCP47Tag implements Stringable, JsonSerializable
     }
 
     /**
+     * @internal
      * Get the lowercase, underscore-separated variant (e.g., `xx_xx`).
      */
     public function getLCU(): string
@@ -130,6 +133,7 @@ final readonly class BCP47Tag implements Stringable, JsonSerializable
     }
 
     /**
+     * @internal
      * Get the uppercase, underscore-separated variant (e.g., `XX_XX`).
      */
     public function getUCU(): string

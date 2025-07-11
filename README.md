@@ -25,21 +25,31 @@
 - 🤓 `ABNF` so clean, linguists shed a single tear
 
 ---
-## ❓ Why not just use `ext-intl` or `#[Assert\Locale]`?
+## ❓ Why not just use `ext-intl`?
 
-Well, good question!
-Most PHP developers reach for **`ext-intl`**, **`symfony/intl`**, or a **`#[Assert\Locale]`** constraint — and these work great for **basic locale lookups**.
+Good question — and the answer is: you **should** keep using it!   
+`BCP47Tag` isn’t here to replace it — it exists to **make sure your language tags are clean, canonical, and safe *before* you hand them to ICU**.
 
-However, they do **not**:
+Because we usually rely on **`ext-intl`** for date formats, currencies, or sorting rules — and it does that well, *if* the tag is valid.
 
-- ✅ Validate the full **BCP 47 ABNF** structure
-- ✅ Respect **grandfathered** or **deprecated subtags**
-- ✅ Match your tags against the **IANA Language Subtag Registry**
-- ✅ Help you **resolve partial tags** (`en` → `en-US`) with your own canonical list. (yeas!)
-- ✅ Enforce **known tags only** rules — `knownTags` + `requireCanonical`
+However, it does **not**:
 
-**BCP47Tag** fills this gap:  
--> RFC 5646 + IANA + real normalization + fallback + resolution.
+- ✅ Validate that your tag fully follows the **BCP 47 ABNF** rules.
+- ✅ Reject or warn about **grandfathered** or **deprecated subtags**.
+- ✅ Match your tags against the authoritative **IANA Language Subtag Registry**.
+- ✅ **Resolve partial input** (`en` → `en-US`) to a known canonical list.
+- ✅ Enforce **known tags only** with `knownTags` + `requireCanonical`.
+
+> If you’re in Symfony, you might also use `#[Assert\Locale]` for basic input validation.  
+And that’s fine for checking user input — but it stops at *structure*. It won’t canonicalize, resolve, or check IANA.
+
+👉 **So the best practice:**
+- ✅ Use **BCP47Tag** to *validate & normalize*.
+- ✅ Hand the cleaned tag to `ext-intl` or whatever else you have for formatting & display.
+- ✅ Trust you’ll never feed ICU any garbage.
+
+**BCP47Tag**: RFC 5646 + IANA + real normalization + fallback + resolution.  
+No hustle with regex, `str_replace()` or guesswork.
 
 ---
 
@@ -72,11 +82,9 @@ $tag = new BCP47Tag(
 );
 echo $tag->getNormalized(); // en-US
 
-// Get format variants
-echo $tag->getLCU(); // en_US
-echo $tag->getUCU(); // EN_US
-echo $tag->getLC();  // en-us
-echo $tag->getUC();  // EN-US
+// Feed to ext-intl
+$icu = $tag->getICULocale(); // en_US
+echo Locale::getDisplayLanguage($icu); // English
 
 // Inspect parsed parts (language, script, region, variants)
 $parsed = $tag->getParsedTag();
@@ -102,7 +110,9 @@ If the input is invalid and a fallback is provided, it will be used instead.
 
 ## 🌐 **Powered by Official IANA Data**
 
-BCP47Tag uses the latest **IANA Language Subtag Registry** to validate languages, scripts, regions, variants, and grandfathered tags.
+BCP47Tag uses a **precompiled static PHP snapshot** of the latest **IANA Language Subtag Registry** to validate languages, scripts, regions, variants, and grandfathered tags.
+
+The registry is loaded **once per process**, kept hot in OPcache for maximum speed.
 
 ---
 
@@ -111,11 +121,7 @@ BCP47Tag uses the latest **IANA Language Subtag Registry** to validate languages
 | Method            | Purpose                                      |
 |-------------------|----------------------------------------------|
 | `getNormalized()` | RFC 5646 standard `xx-XX` format             |
-| `getUnderscored()`| `xx_XX` format for systems that use underscores |
-| `getLC()`         | Lowercase tag (`xx-xx`)                      |
-| `getUC()`         | Uppercase tag (`XX-XX`)                      |
-| `getLCU()`        | Lowercase, underscored (`xx_xx`)             |
-| `getUCU()`        | Uppercase, underscored (`XX_XX`)             |
+| `getICULocale()`  | `xx_XX` format safe for `ext-intl`           |
 | `getOriginalInput()` | Raw input string                          |
 | `getParsedTag()` | Returns the ParsedTag value object for advanced inspection |
 | `__toString()`    | Returns the normalized tag                   |
@@ -151,7 +157,6 @@ BCP47Tag respects this ABNF, so your tags match the real spec — no hidden assu
 
 - PHP 8.3+
 - `ext-intl`
-- `symfony/intl`
 
 ---
 
@@ -168,12 +173,14 @@ vendor/bin/phpunit
 - ✅ Language, script, region, variant validation
 - ✅ IANA subtag registry integration
 - ✅ Canonical resolution with known tags
+- ✅ Static PHP snapshot of the IANA registry for ultra-fast lookups
+- ✅ Lazy singleton registry loader for low memory overhead
 - ⚙️ Extensions & private-use subtags (planned)
 - ⚙️ Automatic periodic IANA registry updates (planned)
-- ⚙️ Symfony Bundle auto-wiring (optional)
+- ⚙️ CLI tool to refresh the IANA data easily
+- ⚙️ Optional Symfony service for container-based caching
 
 ---
-
 
 ## 📖 **License**
 
@@ -185,7 +192,6 @@ vendor/bin/phpunit
 
 - [BCP 47 Specification (RFC 5646)](https://tools.ietf.org/html/rfc5646)
 - [IANA Language Subtag Registry](https://www.iana.org/assignments/language-subtag-registry)
-- [Symfony Intl](https://symfony.com/doc/current/components/intl.html)
 
 ---
 
