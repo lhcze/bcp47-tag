@@ -5,7 +5,9 @@
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![PHP](https://img.shields.io/badge/PHP-%3E=8.3-777bb4)
-![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
+![Tests](https://github.com/lhcze/bcp47-tag/actions/workflows/php.yml/badge.svg)
+![Packagist](https://img.shields.io/packagist/v/lhcze/bcp47-tag)
+![IANA Registry](https://img.shields.io/badge/Source-IANA%20Language%20Subtag%20Registry-green)
 
 **BCP47Tag** is a lightweight, robust PHP library for parsing, validating, normalizing, and resolving [BCP 47](https://tools.ietf.org/html/bcp47) language tags — the standard that powers `en-US`, `fr-CA`, `zh-Hant-CN`, `i-klingon` (🖖 Qapla’!), and more.
 
