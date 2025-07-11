@@ -226,7 +226,7 @@ These fixes improve the code quality and type safety of the library, making it m
 ## 9. 2025-07-16: Optimize Registry Loading and Remove Symfony Dependencies
 
 1. Removed unnecessary symfony/intl checks in BCP47Normalizer:
-    - Removed redundant checks that didn't affect the normalization behavior
+    - Removed redundant checks that didn't affect the normalization behavior. Remnant of the previous thoughts.
     - Simplified the code by removing conditional logic that always returned the same value
 
 2. Removed symfony/intl and symfony/validator dependencies:
