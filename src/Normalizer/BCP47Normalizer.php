@@ -4,20 +4,25 @@ declare(strict_types=1);
 
 namespace LHcze\BCP47\Normalizer;
 
+use LHcze\BCP47\Enum\GrandfatheredTag;
+
 final readonly class BCP47Normalizer
 {
     /**
      * Normalize the locale by replacing underscores with dashes and ensuring proper casing of the region
+     *
+     * TODO What is missing is potential care handling of 'x-'
      */
     public function normalize(string $locale): string
     {
         // Replace underscores with dashes
         $locale = str_replace('_', '-', $locale);
 
-        // Special handling for grandfathered tags (e.g., 'i-klingon')
-        // These should be kept as-is except for underscore replacement
-        if (str_starts_with(strtolower($locale), 'i-') || str_starts_with(strtolower($locale), 'x-')) {
-            return $locale;
+        // Special handling for grandfathered tags.
+        // They should be kept as-is except for casing and underscore replacement
+        $grandfatheredTag = GrandfatheredTag::tryFrom(strtolower($locale));
+        if ($grandfatheredTag !== null) {
+            return $grandfatheredTag->value;
         }
 
         // Split into language and region parts

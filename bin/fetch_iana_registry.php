@@ -1,6 +1,22 @@
 <?php
+/**
+ * This file is part of the BCP47tag package.
+ * @see https://github.com/lhcze/bcp47-tag
+ *
+ * (c) <Lukas Hudecek <<hudecek.lukas@gmail.com>>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ *
+ * TODO
+ *  Swap array index keys for actual tag/subtag for faster lookups
+ *  That would also allow adding a tag/subtag additional data such as preferred-Value, prefix, description, etc.
+ *
+ */
 
 declare(strict_types=1);
+
+require __DIR__ . '/../src/Utils/expandAlphaRangeFunction.php';;
 
 /**
  * This script downloads the IANA Language Subtag Registry and converts it to a PHP file
@@ -10,8 +26,9 @@ declare(strict_types=1);
 // URL of the IANA Language Subtag Registry
 $registryUrl = 'https://www.iana.org/assignments/language-subtag-registry/language-subtag-registry';
 
-// Output file path
-$outputFile = __DIR__ . '/../src/Resources/IanaSubtagRegistry.php';
+// Output file paths
+$outputFile = __DIR__ . '/../src/Resources/IanaSubtagRegistryResource.php';
+$enumOutputFile = __DIR__ . '/../src/Enum/GrandfatheredTag.php';
 
 echo "Downloading IANA Language Subtag Registry...\n";
 
@@ -19,7 +36,11 @@ echo "Downloading IANA Language Subtag Registry...\n";
 $ch = curl_init($registryUrl);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
+curl_setopt(
+    $ch,
+    CURLOPT_USERAGENT,
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+);
 curl_setopt($ch, CURLOPT_TIMEOUT, 30);
 
 $registryContent = curl_exec($ch);
@@ -32,7 +53,7 @@ if ($registryContent === false || $httpCode !== 200) {
     exit(1);
 }
 
-echo "Parsing registry data...\n";
+echo sprintf("Parsing registry data... size (Kb): %s\n", round(strlen($registryContent) / 1024, 2));
 
 // Initialize arrays to store different types of subtags
 $languages = [];
@@ -44,7 +65,7 @@ $grandfathered = [];
 // Split the registry into sections by '%%'
 $sections = explode('%%', $registryContent);
 
-// Process each section
+/// Process each section
 foreach ($sections as $section) {
     // Skip empty sections
     if (trim($section) === '') {
@@ -83,35 +104,45 @@ foreach ($sections as $section) {
         $data[$currentKey] = trim($currentValue);
     }
 
-    // Categorize the section based on its Type
-    if (isset($data['Type'])) {
-        switch ($data['Type']) {
-            case 'language':
-                if (isset($data['Subtag'])) {
-                    $languages[] = strtolower($data['Subtag']);
-                }
-                break;
-            case 'script':
-                if (isset($data['Subtag'])) {
-                    $scripts[] = ucfirst(strtolower($data['Subtag']));
-                }
-                break;
-            case 'region':
-                if (isset($data['Subtag'])) {
-                    $regions[] = strtoupper($data['Subtag']);
-                }
-                break;
-            case 'variant':
-                if (isset($data['Subtag'])) {
-                    $variants[] = strtolower($data['Subtag']);
-                }
-                break;
-            case 'grandfathered':
-                if (isset($data['Tag'])) {
-                    $grandfathered[] = strtolower($data['Tag']);
-                }
-                break;
+    // Check if this section is a valid subtag entry
+    if (!isset($data['Type'])) {
+        continue;
+    }
+
+    $type = $data['Type'];
+
+    // Handle grandfathered tags separately
+    if ($type === 'grandfathered' && isset($data['Tag'])) {
+        $grandfathered[] = strtolower($data['Tag']);
+        continue;
+    }
+
+    // Handle entries with a Subtag
+    if (!isset($data['Subtag'])) {
+        continue;
+    }
+
+    $subtag = $data['Subtag'];
+
+    // If the subtag is a range (e.g., 'Qaaa..Qabx'), expand it ('qaa..qtz' → ['qaa', 'qab', ..., 'qtz'])
+    if (str_contains($subtag, '..')) {
+        [$start, $end] = explode('..', $subtag);
+
+        switch ($type) {
+            case 'language': expandAlphaRangeFunction($languages, $start, $end, fn($s) => strtolower($s)); break;
+            case 'script': expandAlphaRangeFunction($scripts, $start, $end, fn($s) => ucfirst(strtolower($s))); break;
+            case 'region': expandAlphaRangeFunction($regions, $start, $end, fn($s) => strtoupper($s)); break;
         }
+
+        continue;
+    }
+
+    // Regular single subtag entry
+    switch ($type) {
+        case 'language': $languages[] = strtolower($subtag); break;
+        case 'script': $scripts[] = ucfirst(strtolower($subtag)); break;
+        case 'region': $regions[] = strtoupper($subtag); break;
+        case 'variant': $variants[] = strtolower($subtag); break;
     }
 }
 
@@ -131,11 +162,22 @@ $data = [
     'grandfathered' => array_values(array_unique($grandfathered)),
 ];
 
+$data = var_export($data, true);
+if ($data === null) {
+    $data = [
+        'languages' => [],
+        'scripts' => [],
+        'regions' => [],
+        'variants' => [],
+        'grandfathered' => [],
+    ];
+}
+
 // Generate PHP file content
 $phpContent = "<?php\n\ndeclare(strict_types=1);\n\n";
 $phpContent .= "// This file is auto-generated by bin/fetch_iana_registry.php\n";
-$phpContent .= "// Do not edit manually\n\n";
-$phpContent .= "return " . var_export($data, true) . ";\n";
+$phpContent .= "// Do not edit manually. Run composer iana:refresh to update the resource file.\n\n";
+$phpContent .= "return " . $data . ";\n";
 
 // Save to a PHP file
 if (file_put_contents($outputFile, $phpContent) === false) {
@@ -143,5 +185,51 @@ if (file_put_contents($outputFile, $phpContent) === false) {
     exit(1);
 }
 
-echo "IANA registry saved to src/Resources/IanaSubtagRegistry.php\n";
+echo sprintf(
+    "IANA Language Tag Registry static array saved to src/Resources/IanaSubtagRegistryResource.php (%s KB)\n",
+    round(strlen($phpContent) / 1024, 2),
+);
+
+// Generate Enum class for grandfathered tags
+echo "Generating GrandfatheredTag Enum class...\n";
+
+// Create enum content
+$enumContent = "<?php\n\ndeclare(strict_types=1);\n\n";
+$enumContent .= "namespace LHcze\\BCP47\\Enum;\n\n";
+$enumContent .= "/**\n";
+$enumContent .= " * Enum for grandfathered language tags from IANA Language Subtag Registry.\n";
+$enumContent .= " * This file is auto-generated by bin/fetch_iana_registry.php\n";
+$enumContent .= " * Do not edit manually. Run composer iana:refresh to update.\n";
+$enumContent .= " */\n";
+$enumContent .= "enum GrandfatheredTag: string\n";
+$enumContent .= "{\n";
+
+// Add cases for each grandfathered tag
+foreach ($grandfathered as $tag) {
+    // Convert tag to a valid PHP enum case name
+    $caseName = str_replace(['-', '.'], '_', strtoupper($tag));
+
+    // Ensure the case name starts with a letter or underscore
+    if (!preg_match('/^[a-zA-Z_]/', $caseName)) {
+        $caseName = 'TAG_' . $caseName;
+    }
+
+    // Replace any remaining invalid characters
+    $caseName = preg_replace('/[^a-zA-Z0-9_]/', '_', $caseName);
+
+    $enumContent .= "    case $caseName = '$tag';\n";
+}
+
+$enumContent .= "}\n";
+
+// Save to a PHP file
+if (file_put_contents($enumOutputFile, $enumContent) === false) {
+    echo "Error: Failed to write to enum output file.\n";
+    exit(1);
+}
+
+echo sprintf(
+    "GrandfatheredTag Enum saved to src/Enum/GrandfatheredTag.php (%s KB)\n",
+    round(strlen($enumContent) / 1024, 2),
+);
 echo "Done!\n";

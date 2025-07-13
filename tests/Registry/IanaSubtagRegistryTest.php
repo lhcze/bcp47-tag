@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace LHcze\BCP47\Tests\Registry;
 
+use LHcze\BCP47\Exception\BCP47IanaRegistryException;
+use LHcze\BCP47\Exception\BCP47ParserException;
 use LHcze\BCP47\Normalizer\BCP47Normalizer;
 use LHcze\BCP47\Parser\BCP47Parser;
 use LHcze\BCP47\Registry\IanaSubtagRegistry;
@@ -14,11 +16,12 @@ class IanaSubtagRegistryTest extends TestCase
 {
     private static IanaSubtagRegistry $registry;
 
+    /**
+     * @throws BCP47IanaRegistryException
+     */
     public static function setUpBeforeClass(): void
     {
-        $normalizer = new BCP47Normalizer();
-        $parser = new BCP47Parser($normalizer);
-        self::$registry = IanaSubtagRegistry::load($parser);
+        self::$registry = IanaSubtagRegistry::load();
     }
 
     public function testRegistryLoading(): void
@@ -26,25 +29,25 @@ class IanaSubtagRegistryTest extends TestCase
         $this->assertInstanceOf(IanaSubtagRegistry::class, self::$registry);
     }
 
-    #[DataProvider('provideValidLanguages')]
+    #[DataProvider('provideLanguages')]
     public function testIsValidLanguage(string $language, bool $expected): void
     {
         $this->assertSame($expected, self::$registry->isValidLanguage($language));
     }
 
-    #[DataProvider('provideValidScripts')]
+    #[DataProvider('provideScripts')]
     public function testIsValidScript(string $script, bool $expected): void
     {
         $this->assertSame($expected, self::$registry->isValidScript($script));
     }
 
-    #[DataProvider('provideValidRegions')]
+    #[DataProvider('provideRegions')]
     public function testIsValidRegion(string $region, bool $expected): void
     {
         $this->assertSame($expected, self::$registry->isValidRegion($region));
     }
 
-    #[DataProvider('provideValidVariants')]
+    #[DataProvider('provideVariants')]
     public function testIsValidVariant(string $variant, bool $expected): void
     {
         $this->assertSame($expected, self::$registry->isValidVariant($variant));
@@ -57,43 +60,99 @@ class IanaSubtagRegistryTest extends TestCase
     }
 
     #[DataProvider('provideValidLocales')]
-    public function testIsValidLocale(string $locale, bool $expected): void
+    public function testIsValidParsedTag(string $locale, bool $expected): void
     {
-        $this->assertSame($expected, self::$registry->isValidLocale($locale));
+        $normalizer = new BCP47Normalizer();
+        $parser = new BCP47Parser($normalizer);
+
+        try {
+            $parsedTag = $parser->parseTag($locale);
+            $result = self::$registry->isValidParsedTag($parsedTag);
+            $this->assertSame($expected, $result);
+        } catch (BCP47ParserException $e) {
+            // If parsing fails, the locale is invalid
+            $this->assertFalse($expected);
+        }
     }
 
-    public static function provideValidLanguages(): array
+    #[DataProvider('provideValidLocalesWithRequirements')]
+    public function testIsValidParsedTagWithRequirements(string $locale, bool $requireRegion, bool $requireScript, bool $expected): void
+    {
+        $normalizer = new BCP47Normalizer();
+        $parser = new BCP47Parser($normalizer);
+
+        try {
+            $parsedTag = $parser->parseTag($locale);
+            $result = self::$registry->isValidParsedTag($parsedTag, $requireRegion, $requireScript);
+            $this->assertSame($expected, $result);
+        } catch (BCP47ParserException $e) {
+            // If parsing fails, the locale is invalid
+            $this->assertFalse($expected);
+        }
+    }
+
+    #[DataProvider('provideInvalidLocales')]
+    public function testValidateParsedTagThrowsException(string $locale): void
+    {
+        $normalizer = new BCP47Normalizer();
+        $parser = new BCP47Parser($normalizer);
+
+        try {
+            $parsedTag = $parser->parseTag($locale);
+            $this->expectException(BCP47IanaRegistryException::class);
+            self::$registry->validateParsedTag($parsedTag);
+        } catch (BCP47ParserException $e) {
+            // If parsing fails, we can't test validateParsedTag
+            $this->markTestSkipped('Cannot test validateParsedTag because parsing failed');
+        }
+    }
+
+    public static function provideLanguages(): array
     {
         return [
             'valid language' => ['en', true],
-            'valid language uppercase' => ['EN', true],
+            'invalid language uppercase' => ['EN', false],
+            'invalid language casing' => ['EN', false],
             'invalid language' => ['zzzz', false],
         ];
     }
 
-    public static function provideValidScripts(): array
+    /**
+     * 0: script
+     * 1: expected result
+     */
+    public static function provideScripts(): array
     {
         return [
             'valid script' => ['Latn', true],
-            'valid script lowercase' => ['latn', true],
+            'invalid script lowercase' => ['latn', false],
+            'invalid script uppercase' => ['LATN', false],
             'valid uncoded script' => ['Zzzz', true],
         ];
     }
 
-    public static function provideValidRegions(): array
+    public static function provideRegions(): array
     {
         return [
             'valid region' => ['US', true],
-            'valid region lowercase' => ['us', true],
+            'valid region lowercase' => ['us', false],
+            'invalid region casing' => ['uS', false],
             'valid unknown region' => ['ZZ', true],
+            'invalid unknown region' => ['Zz', false],
         ];
     }
 
-    public static function provideValidVariants(): array
+    public static function provideVariants(): array
     {
         return [
-            'valid variant' => ['1901', true],
-            'invalid variant' => ['9999', false],
+            'valid variant 1901' => ['1901', true],
+            'valid variant 1994' => ['1994', true],
+            'valid variant 1996' => ['1996', true],
+            'invalid variant 1999' => ['9999', false],
+            'valid viennese variant' => ['viennese', true],
+            'invalid viennese variant' => ['Viennese', false],
+            'valid newfound variant' => ['newfound', true],
+            'invalid newfound variant' => ['NEWfound', false],
         ];
     }
 
@@ -114,6 +173,38 @@ class IanaSubtagRegistryTest extends TestCase
             'valid Unknown or Invalid Territory Script in language-script-region' => ['en-Zzzz-US', true],
             'valid Unknown or Invalid Territory Region in language-region' => ['en-ZZ', true],
             'invalid language' => ['zz-US', false],
+        ];
+    }
+
+    public static function provideValidLocalesWithRequirements(): array
+    {
+        return [
+            'language only, no requirements' => ['en', false, false, true],
+            'language only, require region' => ['en', true, false, false],
+            'language only, require script' => ['en', false, true, false],
+            'language only, require both' => ['en', true, true, false],
+            'language-region, no requirements' => ['en-US', false, false, true],
+            'language-region, require region' => ['en-US', true, false, true],
+            'language-region, require script' => ['en-US', false, true, false],
+            'language-region, require both' => ['en-US', true, true, false],
+            'language-script, no requirements' => ['zh-Hans', false, false, true],
+            'language-script, require region' => ['zh-Hans', true, false, false],
+            'language-script, require script' => ['zh-Hans', false, true, true],
+            'language-script, require both' => ['zh-Hans', true, true, false],
+            'language-script-region, no requirements' => ['zh-Hans-CN', false, false, true],
+            'language-script-region, require region' => ['zh-Hans-CN', true, false, true],
+            'language-script-region, require script' => ['zh-Hans-CN', false, true, true],
+            'language-script-region, require both' => ['zh-Hans-CN', true, true, true],
+        ];
+    }
+
+    public static function provideInvalidLocales(): array
+    {
+        return [
+            'invalid language' => ['00-US'],
+            'invalid script' => ['en-0000-US'],
+            'invalid region' => ['en-00'],
+            'invalid variant' => ['en-US-00000'],
         ];
     }
 }

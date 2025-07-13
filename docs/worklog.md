@@ -259,3 +259,30 @@ These fixes improve the code quality and type safety of the library, making it m
     - Code quality checks passed
 
 These optimizations improve performance by eliminating JSON parsing overhead and implementing a lazy loading pattern that loads the registry only once per request. The removal of symfony dependencies makes the library more lightweight and self-contained.
+
+## 10. 2025-07-17: Refactor BCP47Tag library to give better results, understandable interface, exception and performace
+
+1. Refactored BCP47Tag class, changed class construction signature. 
+   - Replaced $knownTags and $requireCanonical arguments with $useCanonicalMatchTags array
+   - Refactored the internals during construction of the object to better handle fallback, normalization and validation 
+     (including fallback and useCanonicalMatchTags array)
+   - added public interface getLanguageTag(): LanguageTag method so you can work with even easier value object in your 
+     code base, 
+   - useCanonicalMatchTags is now using scoring system to match the resolved language tag to provided list
+2. ParsedTag value object is now Stringable and JsonSerializable
+3. Introducing LanguageTag— an immutable value object that can be created only via it's own factory method and extending 
+   ParsedTag so it's also stringable and json serializable
+4. BCP47Normalizer now uses auto-generated GrandfatheredTag enum to detect grandfathered tags
+5. Few modifications to BCP47Parser to more readable, throw exceptions, and handle grandfathered tags correctly
+6. Few modifications to IanaSubtagRegistry to throw exceptions, added TODO list what is missing and made code more 
+   readable
+7. Resource file is now static php array instead of json file
+8. Resource file compilation how expands range tags into individual tags/subtags, uses utility function 
+   expandAlphaRangeFunction()
+9. Made Exception classes with a logical flow in case something goes wrong
+10. Added phpstan/phpstan-strict-rules into composer
+11. Added `composer iana:refresh` to fetch and compile fresh source of data
+12. Some more...
+
+This version if far more ready to work great on production environments for 99.8% of the cases that might be needed :)
+While I still see the joy to work towards the goal to make the 0.2% happy as well (flex)

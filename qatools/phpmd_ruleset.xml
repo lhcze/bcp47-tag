@@ -83,6 +83,7 @@
     <rule ref="rulesets/controversial.xml">
         <exclude name="CamelCaseVariableName"/> <!-- far too many pre-existing violations; baseline would be huge -->
         <exclude name="CamelCaseParameterName"/> <!-- far too many pre-existing violations; baseline would be huge -->
+        <exclude name="CamelCaseMethodName"/> <!-- far too many pre-existing violations; baseline would be huge -->
     </rule>
 
     <!-- DESIGN -->
