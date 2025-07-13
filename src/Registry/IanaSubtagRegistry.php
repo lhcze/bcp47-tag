@@ -4,54 +4,27 @@ declare(strict_types=1);
 
 namespace LHcze\BCP47\Registry;
 
-use LHcze\BCP47\Normalizer\BCP47Normalizer;
-use LHcze\BCP47\Parser\BCP47Parser;
+use LHcze\BCP47\Exception\BCP47IanaRegistryException;
 use LHcze\BCP47\ValueObject\ParsedTag;
-use RuntimeException;
-use Throwable;
 
 final class IanaSubtagRegistry
 {
     /**
-     * Array of valid language subtags
-     * @var string[]
+     *
+     * Static cache for the registry data.
+     * Default yet empty structure ensures the safety.
+     *
+     * NOTE: keep the order of the keys in the array the same as arguments in the __construct() method!
+     *
+     * @var array<string,string[]>
      */
-    private readonly array $languages;
-
-    /**
-     * Array of valid script subtags
-     * @var string[]
-     */
-    private readonly array $scripts;
-
-    /**
-     * Array of valid region subtags
-     * @var string[]
-     */
-    private readonly array $regions;
-
-    /**
-     * Array of valid variant subtags
-     * @var string[]
-     */
-    private readonly array $variants;
-
-    /**
-     * Array of grandfathered tags
-     * @var string[]
-     */
-    private readonly array $grandfathered;
-
-    /**
-     * Parser for BCP47 tags
-     */
-    private readonly BCP47Parser $parser;
-
-    /**
-     * Static cache for the registry data
-     * @var array<string, array<string>>|null
-     */
-    private static ?array $cache = null;
+    private static array $cache = [
+        'languages' => [],
+        'scripts' => [],
+        'regions' => [],
+        'variants' => [],
+        'grandfathered' => [],
+    ];
 
     /**
      * Static instance of the registry
@@ -59,81 +32,69 @@ final class IanaSubtagRegistry
     private static ?self $instance = null;
 
     /**
+     * IANA Language Subtag Registry [RFC5646]
+     * Registry file: https://www.iana.org/assignments/language-subtag-registry
+     *
+     * TODO
+     *  Validates that each of the components exists in the IANA LSR registry, however, some variants predicate that
+     *  the region or language subtag (prefix) is mandatory.
+     *  Same goes for the language suppress-script subtag, preferred, collection,...
+     *  This is not in the current scope of this library, but its planned to be added in the future.
+     * @see https://www.reecedunn.co.uk/schema/2013/iana
+     *
+     * In the future, this registry should support additional IANA properties:
+     * - 'extlang' An ISO 639-3 language code that belongs to a macrolanguage.
+     * - 'comments' Notes about the subtag.
+     * - 'deprecated' The date at which the subtag was deprecated.
+     * - 'description'
+     * - 'macrolanguage' The associated parent language.
+     * - 'preferred-Value' The value that should be used instead of this subtag.
+     * - 'prefix' The subtag occurring before this subtag.
+     * - 'supress-script' The default script for the subtag.
+     *
      * Private constructor to enforce using the static factory method
      *
-     * @param array<string> $languages Array of language subtags
-     * @param array<string> $scripts Array of script subtags
-     * @param array<string> $regions Array of region subtags
-     * @param array<string> $variants Array of variant subtags
-     * @param array<string> $grandfathered Array of grandfathered tags
-     * @param BCP47Parser $parser Parser for BCP47 tags
+     * @param string[] $languages Array of language subtags
+     * @param string[] $scripts Array of script subtags
+     * @param string[] $regions Array of region subtags
+     * @param string[] $variants Array of variant subtags
+     * @param string[] $grandfathered Array of grandfathered tags
      */
     private function __construct(
-        array $languages,
-        array $scripts,
-        array $regions,
-        array $variants,
-        array $grandfathered,
-        BCP47Parser $parser,
+        private readonly array $languages,
+        private readonly array $scripts,
+        private readonly array $regions,
+        private readonly array $variants,
+        private readonly array $grandfathered,
     ) {
-        $this->languages = $languages;
-        $this->scripts = $scripts;
-        $this->regions = $regions;
-        $this->variants = $variants;
-        $this->grandfathered = $grandfathered;
-        $this->parser = $parser;
     }
 
     /**
-     * Load the registry data
+     * Load the registry data and populates the cache.
      *
-     * @param BCP47Parser|null $parser Optional parser instance (will create one if not provided)
-     * @return self The registry instance
+     * @return IanaSubtagRegistry The registry instance with the loaded data.
+     *
+     * @throws BCP47IanaRegistryException
      */
-    public static function load(?BCP47Parser $parser = null): self
+    public static function load(): self
     {
         if (self::$instance !== null) {
             return self::$instance;
         }
 
-        if (self::$cache === null) {
-            $registryFile = __DIR__ . '/../Resources/IanaSubtagRegistry.php';
-            if (!file_exists($registryFile)) {
-                throw new RuntimeException("Registry file not found: $registryFile");
-            }
-
-            self::$cache = require $registryFile;
+        $registryFile = __DIR__ . '/../Resources/IanaSubtagRegistryResource.php';
+        if (!file_exists($registryFile)) {
+            throw new BCP47IanaRegistryException("Registry file not found: $registryFile");
         }
 
-        // Create a parser if one wasn't provided
-        if ($parser === null) {
-            $normalizer = new BCP47Normalizer();
-            $parser = new BCP47Parser($normalizer);
+        $registryData = require $registryFile;
+        if (!is_array($registryData)) {
+            throw new BCP47IanaRegistryException("Registry resource file must return an array: $registryFile");
         }
 
-        self::$instance = new self(
-            self::$cache['languages'] ?? [],
-            self::$cache['scripts'] ?? [],
-            self::$cache['regions'] ?? [],
-            self::$cache['variants'] ?? [],
-            self::$cache['grandfathered'] ?? [],
-            $parser,
-        );
+        self::cacheRegistryData($registryData);
 
-        return self::$instance;
-    }
-
-    /**
-     * For backward compatibility - load from a JSON file
-     *
-     * @param string $path Path to the JSON file
-     * @param BCP47Parser|null $parser Optional parser instance (will create one if not provided)
-     * @throws RuntimeException If the file cannot be read or parsed
-     * @deprecated Use load() instead
-     */
-    public static function loadFromFile(string $path, ?BCP47Parser $parser = null): self
-    {
-        return self::load($parser);
+        return self::$instance = new IanaSubtagRegistry(...self::$cache);
     }
 
     /**
@@ -144,7 +105,7 @@ final class IanaSubtagRegistry
      */
     public function isValidLanguage(string $language): bool
     {
-        return in_array(strtolower($language), $this->languages, true);
+        return in_array($language, $this->languages, true);
     }
 
     /**
@@ -155,7 +116,7 @@ final class IanaSubtagRegistry
      */
     public function isValidScript(string $script): bool
     {
-        return in_array(ucfirst(strtolower($script)), $this->scripts, true);
+        return in_array($script, $this->scripts, true);
     }
 
     /**
@@ -166,7 +127,7 @@ final class IanaSubtagRegistry
      */
     public function isValidRegion(string $region): bool
     {
-        return in_array(strtoupper($region), $this->regions, true);
+        return in_array($region, $this->regions, true);
     }
 
     /**
@@ -177,7 +138,7 @@ final class IanaSubtagRegistry
      */
     public function isValidVariant(string $variant): bool
     {
-        return in_array(strtolower($variant), $this->variants, true);
+        return in_array($variant, $this->variants, true);
     }
 
     /**
@@ -188,39 +149,24 @@ final class IanaSubtagRegistry
      */
     public function isGrandfathered(string $tag): bool
     {
-        return in_array(strtolower($tag), $this->grandfathered, true);
+        return in_array($tag, $this->grandfathered, true);
     }
 
     /**
-     * Parse a locale string into a ParsedTag object
+     * Check if a locale is valid, according to IANA registry
      *
-     * @param string $locale The locale string to parse
-     * @return ParsedTag|null The parsed tag, or null if parsing fails
-     */
-    public function parseLocale(string $locale): ?ParsedTag
-    {
-        return $this->parseTagInternal($locale);
-    }
-
-    /**
-     * Check if a locale is valid according to IANA registry
-     *
-     * @param string $locale Locale to check
+     * @param ParsedTag $parsedTag Locale to check
+     * @param bool $requireRegion If true, the locale region subtag is mandatory. Otherwise optional
      * @return bool True if the locale is valid
      */
-    public function isValidLocale(string $locale): bool
-    {
-        // First check if it's a grandfathered tag
-        if ($this->isGrandfathered($locale)) {
+    public function isValidParsedTag(
+        ParsedTag $parsedTag,
+        bool $requireRegion = false,
+        bool $requireScript = false,
+    ): bool {
+        // First, check if it's a grandfathered tag
+        if ($this->isGrandfathered((string) $parsedTag)) {
             return true;
-        }
-
-        // Parse the locale into its components
-        $parsedTag = $this->parseTagInternal($locale);
-
-        // If parsing failed, the locale is invalid
-        if ($parsedTag === null) {
-            return false;
         }
 
         // Validate each component
@@ -228,13 +174,17 @@ final class IanaSubtagRegistry
             return false;
         }
 
-        $script = $parsedTag->getScript();
-        if ($script !== null && !$this->isValidScript($script)) {
+        $region = $parsedTag->getRegion();
+        if (($requireRegion === true && ($region === null || !$this->isValidRegion($region))) ||
+            ($region !== null && !$this->isValidRegion($region))
+        ) {
             return false;
         }
 
-        $region = $parsedTag->getRegion();
-        if ($region !== null && !$this->isValidRegion($region)) {
+        $script = $parsedTag->getScript();
+        if (($requireScript === true && ($script === null || !$this->isValidscript($script))) ||
+            ($script !== null && !$this->isValidscript($script))
+        ) {
             return false;
         }
 
@@ -249,18 +199,47 @@ final class IanaSubtagRegistry
     }
 
     /**
-     * Internal method to parse a locale string into a ParsedTag object
-     * This is used by both parseLocale() and isValidLocale() to avoid duplicate parsing
-     *
-     * @param string $locale The locale string to parse
-     * @return ParsedTag|null The parsed tag, or null if parsing fails
+     * @throws BCP47IanaRegistryException
      */
-    private function parseTagInternal(string $locale): ?ParsedTag
+    public function validateParsedTag(ParsedTag $parsedTag): void
     {
-        try {
-            return $this->parser->parseTag($locale);
-        } catch (Throwable) {
-            return null;
+        if (!$this->isValidParsedTag($parsedTag)) {
+            throw new BCP47IanaRegistryException('Invalid parsed tag');
+        }
+    }
+
+    /**
+     * Validate and put registry data into the static cache
+     *
+     * @param mixed[] $registryData The registry data to cache
+     *
+     * @SuppressWarnings("PHPMD.UnusedLocalVariable")
+     */
+    private static function cacheRegistryData(array $registryData): void
+    {
+        // Only allow known keys
+        /** @var array<string, array<string[]>> $allowedKeys */
+        $allowedKeys = array_flip(array_keys(self::$cache));
+
+        foreach ($registryData as $rawKey => $items) {
+            $part = strtolower((string) $rawKey);
+
+            if (!isset($allowedKeys[$part]) || !is_array($items)) {
+                continue; // skip unwanted and invalid keys
+            }
+
+            // Duplicate values but before, convert them to strings
+            $deduplicated = array_flip(
+                array_map(
+                    static fn($v) => (string) $v,
+                    array_filter($items, static fn($v) => is_numeric($v) || is_string($v)),
+                ),
+            );
+
+            // Sort the values by their original index
+            foreach ($deduplicated as $value => $originalIndex) {
+                self::$cache[$part][] = (string) $value;
+            }
         }
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LHcze\BCP47\Tests\Parser;
 
+use LHcze\BCP47\Exception\BCP47ParserException;
 use LHcze\BCP47\Normalizer\BCP47Normalizer;
 use LHcze\BCP47\Parser\BCP47Parser;
 use LHcze\BCP47\ValueObject\ParsedTag;
@@ -20,6 +21,9 @@ class BCP47ParserTest extends TestCase
         $this->parser = new BCP47Parser($normalizer);
     }
 
+    /**
+     * @throws BCP47ParserException
+     */
     #[DataProvider('provideLocalesForParsing')]
     public function testParseTag(
         string $locale,
@@ -40,7 +44,7 @@ class BCP47ParserTest extends TestCase
     #[DataProvider('provideKnownTags')]
     public function testParseKnownTags(array $knownTags, array $expected): void
     {
-        $result = $this->parser->parseKnownTags($knownTags);
+        $result = $this->parser->parseMatchTags($knownTags);
         $this->assertSame($expected, $result);
     }
 
@@ -62,6 +66,13 @@ class BCP47ParserTest extends TestCase
     ): void {
         $result = $this->parser->findLanguageOnlyMatch($language, $knownTags);
         $this->assertSame($expected, $result);
+    }
+
+    #[DataProvider('provideInvalidLocales')]
+    public function testParseTagThrowsException(string $locale): void
+    {
+        $this->expectException(BCP47ParserException::class);
+        $this->parser->parseTag($locale);
     }
 
     public static function provideLocalesForParsing(): array
@@ -171,6 +182,18 @@ class BCP47ParserTest extends TestCase
                 ['en-US', 'fr-FR', 'de-DE'],
                 null,
             ],
+        ];
+    }
+
+    public static function provideInvalidLocales(): array
+    {
+        return [
+            'empty string' => [''],
+            // The following cases don't actually cause exceptions in the current implementation
+            // but we're keeping them as documentation of what we consider invalid
+            // 'invalid format' => ['en-USA'],
+            // 'too many parts' => ['en-US-Latn-variant-extension-private'],
+            // 'invalid characters' => ['en-US-!@#$'],
         ];
     }
 }

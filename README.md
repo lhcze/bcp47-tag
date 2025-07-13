@@ -1,36 +1,33 @@
-
 # 🌐 BCP47Tag
 ## 🪐 **Don’t panic. Your tag is valid.**
-### Validate, Normalize & Canonicalize BCP 47 Language Tags. That would be `en`, `en-US`, etc ...
+### Validate, Normalize & Canonicalize BCP 47 Language Tags (`en`, `en-US`, `zh-Hant-CN`, etc.)
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![PHP](https://img.shields.io/badge/PHP-%3E=8.3-777bb4)
-![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/lhcze/bcp47-tag/php.yml)
+![Packagist](https://img.shields.io/packagist/v/lhcze/bcp47-tag)
+![Downloads](https://img.shields.io/packagist/dt/lhcze/bcp47-tag)
+![IANA Registry](https://img.shields.io/badge/Source-IANA%20Language%20Subtag%20Registry-green)
 
-**BCP47Tag** is a lightweight, robust PHP library for parsing, validating, normalizing, and resolving [BCP 47](https://tools.ietf.org/html/bcp47) language tags — the standard that powers `en-US`, `fr-CA`, `zh-Hant-CN`, `i-klingon` (🖖 Qapla’!), and more.
+**BCP47Tag** is a robust PHP library for working with BCP 47 language tags:
 
----
-
-## ✅ **Why use BCP47Tag?**
-
-- ✔️ **RFC 5646 / BCP 47 compliant** structure
+- ✔️ Validates against the real IANA Language Subtag Registry
+- ✔️ ABNF-compliant (RFC 5646)
 - ✔️ Supports language, script, region, variant, grandfathered tags
 - ✔️ Auto-normalizes casing & separators (`en_us` → `en-US`)
-- ✔️ **Resolves partial language-only tags** (`en` → `en-US`) when you require a canonical tag
-- ✔️ Validates against the **official IANA Language Subtag Registry**
+- ✔️ Automatically expands collapsed ranges from the registry
+- ✔️ Resolves partial language tags (e.g., `en` → `en-US`) using custom canonical matching, with scoring
+- ✔️ Error handling via clear exception types
+- ✔️ Lightweight `LanguageTag` VO for validated tags
+- ✔️ Works perfectly with `ext-intl`—no surprises upon feeding ICU
 - ✔️ Easy fallback mechanism
-- ✔️ Zero hidden magic — clear, explicit resolution
 - ️🫧 Supports grandfathered tags so old, they still remember when Unicode 2.0 was hot
 - 🖖 Accepts `i-klingon` and `i-enochian` for your occult projects
 - 🤓 `ABNF` so clean, linguists shed a single tear
-
 ---
 ## ❓ Why not just use `ext-intl`?
-
-Good question — and the answer is: you **should** keep using it!   
-`BCP47Tag` isn’t here to replace it — it exists to **make sure your language tags are clean, canonical, and safe *before* you hand them to ICU**.
-
-Because we usually rely on **`ext-intl`** for date formats, currencies, or sorting rules — and it does that well, *if* the tag is valid.
+Good question — and the answer is: you **should** keep using it!
+`ext-intl` (ICU) is brilliant at formatting *if* your tag is clean.  
 
 However, it does **not**:
 
@@ -47,6 +44,7 @@ And that’s fine for checking user input — but it stops at *structure*. It wo
 - ✅ Use **BCP47Tag** to *validate & normalize*.
 - ✅ Hand the cleaned tag to `ext-intl` or whatever else you have for formatting & display.
 - ✅ Trust you’ll never feed ICU any garbage.
+- ✅ Carry around immutable LanguageTag value object across your code base instead of string
 
 **BCP47Tag**: RFC 5646 + IANA + real normalization + fallback + resolution.  
 No hustle with regex, `str_replace()` or guesswork.
@@ -68,77 +66,93 @@ use LHcze\BCP47\BCP47Tag;
 
 // Just normalize & validate
 $tag = new BCP47Tag('en_us');
-echo $tag->getNormalized(); // en-US
+echo $tag->getNormalized();    // "en-US"
+echo $tag->getICUformat();   // "en_US"
+
+// With canonical matching
+$tag = new BCP47Tag('en', useCanonicalMatchTags: ['de-DE', 'en-US']);
+echo $tag->getNormalized();    // "en-US"
 
 // Use fallback if invalid
-$tag = new BCP47Tag('notreal', fallbackLocale: 'fr-FR');
+$tag = new BCP47Tag('notreal', 'fr-FR');
 echo $tag->getNormalized(); // fr-FR
 
-// Resolve partial to known canonical tag
-$tag = new BCP47Tag(
-    'en',
-    knownTags: ['en-US', 'en-GB'],
-    requireCanonical: true
-);
-echo $tag->getNormalized(); // en-US
+// Invalid input → exception
+try {
+    new BCP47Tag('invalid!!');
+} catch (BCP47InvalidLocaleException $e) {
+    echo $e->getMessage();
+}
 
 // Feed to ext-intl
 $icu = $tag->getICULocale(); // en_US
 echo Locale::getDisplayLanguage($icu); // English
 
-// Inspect parsed parts (language, script, region, variants)
-$parsed = $tag->getParsedTag();
-echo $parsed?->getLanguage(); // en
-echo $parsed?->getRegion();   // US
+// LanguageTag VO
+$langTag = $tag->getLanguageTag();
+echo $langTag->getLanguage();  // "en"
+echo $langTag->getRegion();    // "US"
+echo (string) $langTag;        // "en-US"
 ```
 
 ---
 
-## 🔍 **How Resolution Works**
+## 🔍 **Features & Flow**
 
-✅ **`knownTags`**  
-Provide an explicit list of canonical BCP 47 tags your app accepts.  
-If the input is partial (like `en`), the tag will resolve to the first matching known tag (`en-US`). Position in the list is a priority.
+1. **Normalize + parse**  
+   Clean casing/formatting and parse into components.
 
-✅ **`requireCanonical`**  
-When true, language-only input must resolve to a canonical known tag — or the constructor will throw an `InvalidArgumentException`.
+2. **Validate against IANA**  
+   Broken input or fallback triggers explicit exceptions:
+    - `BCP47InvalidLocaleException`
+    - `BCP47InvalidFallbackLocaleException`
 
-✅ **Fallback**  
-If the input is invalid and a fallback is provided, it will be used instead.
+3. **Canonical matching (optional)**
+    - Pass an array of `useCanonicalMatchTags`
+    - Each is matched and scored:  
+      +100 language match, +10 region, +1 script
+    - Highest score wins.
+    - Same score makes the first one to have it to make a home run
+
+4. **LanguageTag VO**  
+   Immutable, validated, `Stringable` & `JsonSerializable`.
 
 ---
 
-## 🌐 **Powered by Official IANA Data**
-
+## 📜 Supported Tags
 BCP47Tag uses a **precompiled static PHP snapshot** of the latest **IANA Language Subtag Registry** to validate languages, scripts, regions, variants, and grandfathered tags.
-
 The registry is loaded **once per process**, kept hot in OPcache for maximum speed.
+- ✅ ISO language, script, region, variants
+- ✅ Grandfathered/deprecated tags (e.g., `i-klingon`)
+- ✅ Collapsed registry ranges are auto-expanded
+- ⚠️ Extensions & private-use subtags (future)
 
 ---
 
 ## 🧩 **Key API**
 
-| Method            | Purpose                                      |
-|-------------------|----------------------------------------------|
-| `getNormalized()` | RFC 5646 standard `xx-XX` format             |
-| `getICULocale()`  | `xx_XX` format safe for `ext-intl`           |
-| `getOriginalInput()` | Raw input string                          |
-| `getParsedTag()` | Returns the ParsedTag value object for advanced inspection |
-| `__toString()`    | Returns the normalized tag                   |
+| Method | Description |
+|--------|-------------|
+| `__construct(string $input, ?string $fallback, ?array $useCanonicalMatchTags)` | Main entry |
+| `getInputLocale()` | Original input string |
+| `getNormalized()` | RFC‑5646 formatted tag |
+| `getICUformat()` | Underscore variant (`xx_XX`) |
+| `getLanguageTag()` | Returns `LanguageTag` VO |
+| `__toString()` / `jsonSerialize()` | Returns normalized string |
 
 ---
 
 ## 📜 The Official BCP 47 ABNF
 
-The syntax your tags must follow is defined by [RFC 5646](https://datatracker.ietf.org/doc/html/rfc5646) in ABNF:
+The syntax tags must follow is defined by [RFC 5646](https://datatracker.ietf.org/doc/html/rfc5646) in ABNF:
 
 ```abnf
 langtag = language
-          ["-" script]
-          ["-" region]
-          *("-" variant)
-          *("-" extension)
-          ["-" privateuse]
+   ["-" script]
+   ["-" region]
+   *("-" variant)
+   *("-" extension)
+   ["-" privateuse]
 ```
 
 Examples:
@@ -152,6 +166,15 @@ Examples:
 BCP47Tag respects this ABNF, so your tags match the real spec — no hidden assumptions.
 
 ---
+## ❓ **Why is this useful?**
+
+Use cases include:
+- Validating API `Accept-Language` headers
+- Multi-regional CMS deployments
+- Internationalization pipelines
+- Locale-dependent services where mis-typed tags lead to silent failures
+
+---
 
 ## ⚙️ **Requirements**
 
@@ -163,34 +186,35 @@ BCP47Tag respects this ABNF, so your tags match the real spec — no hidden assu
 ## 🧪 **Tests**
 
 ```bash
-vendor/bin/phpunit
+composer qa
 ```
 
 ---
 
 ## 📌 **Roadmap**
 
+- ✅ IANA Language Subtag Registry integration
 - ✅ Language, script, region, variant validation
-- ✅ IANA subtag registry integration
-- ✅ Canonical resolution with known tags
+- ✅ Lazy singleton registry loader
 - ✅ Static PHP snapshot of the IANA registry for ultra-fast lookups
-- ✅ Lazy singleton registry loader for low memory overhead
-- ⚙️ Extensions & private-use subtags (planned)
-- ⚙️ Automatic periodic IANA registry updates (planned)
-- ⚙️ CLI tool to refresh the IANA data easily
-- ⚙️ Optional Symfony service for container-based caching
+- ✅ Canonical matching with scoring
+- ✅ Typed exceptions for flow control
+- ⚙️ Extension/subtag support (planned)
+- ⚙️ Additional data use from IANA registry (suppress-script subtag, preferred, prefix)
+- ⚙️ Auto-registry refresh script
 
 ---
 
-## 📖 **License**
+
+## 📖 License
 
 [MIT](LICENSE)
 
 ---
 
-## 🔗 **References**
+## 🔗 References
 
-- [BCP 47 Specification (RFC 5646)](https://tools.ietf.org/html/rfc5646)
+- [RFC 5646 – BCP 47 ABNF](https://tools.ietf.org/html/rfc5646)
 - [IANA Language Subtag Registry](https://www.iana.org/assignments/language-subtag-registry)
 
 ---
